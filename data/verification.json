@@ -316,7 +316,8 @@
     "Scope choice often matters more than the provider: Gmail send-only is days, Gmail read is weeks plus an annual paid audit. We added “Pick your path” blocks so developers see this before writing code.",
     "Provider rules changed a lot in the last 18 months (GitHub tokens, Slack limits, HubSpot caps). Third-party guides and model memory lag behind, so the live agent always reads current pages and dates every source.",
     "Composio's managed apps remove the approval wait during development, but connections are tied to the app they were made with. Moving users to your own app later forces everyone to reconnect. Every guide says when to switch.",
-    "Model-written “quotes” sometimes aren't on the page. We now check every quote against the fetched text and downgrade unmatched claims to uncertain instead of trusting them."
+    "Model-written “quotes” sometimes aren't on the page. We now check every quote against the fetched text and downgrade unmatched claims to uncertain instead of trusting them.",
+    "The first production run (Zoom, 77s, 36 facts, 32 quotes verified, 2 live probes) produced a sensible 3/5 verdict, but reading it critically exposed three agent bugs: fact IDs leaking into prose, a developer forum labelled “official”, and Zoom's server-to-server app docs bleeding into a guide meant for multi-user OAuth. All three are now fixed in code and covered by tests. Live probes added something no doc said outright: Zoom shows its sign-in page before validating the client_id, so a bad client ID only surfaces after the user logs in."
   ],
   "pipeline": [
     "Check Composio's public toolkit page for managed-OAuth availability.",
