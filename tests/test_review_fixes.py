@@ -559,3 +559,15 @@ def test_small_fixes_from_fourth_review():
     assert "pay" not in g.agent_split.you
     build = {x.title: x for x in next(st for st in g.stages if st.id == "build").steps}
     assert build["Create OAuth client"].evidence != "probed" and build["Test the login"].evidence == "probed"
+
+
+def test_umbrella_beats_quota_and_homepage_stops_offering_runs(monkeypatch):
+    import time as _t
+    from app import main
+    c = TestClient(main.app)
+    monkeypatch.setattr(main.llm, "daily_until", _t.time() + 600)
+    monkeypatch.setattr(main.llm, "api_key", "k")
+    assert "Gmail" in c.post("/api/generate", json={"query": "Google"}).json()["choose"]
+    assert c.post("/api/generate", json={"query": "Gmail"}).json()["existing"] == "/guides/google-gmail"
+    html = c.get("/").text
+    assert 'data-try="Zoom"' not in html and "Generate →" not in html and "Paused for today" in html

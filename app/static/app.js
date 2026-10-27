@@ -3,7 +3,27 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
 let busy = false;
-async function startLookup(query, force = false) {
+// Show a message where the person is looking: the hint under the search box, and, when the click came from
+// further down (the 100-app table), right next to the link they clicked too.
+function say(html, origin) {
+  const msg = $("#lookup-msg");
+  if (msg) msg.innerHTML = html;
+  if (origin && !origin.closest(".hero")) {
+    let box = origin.parentElement.querySelector(".row-msg");
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "row-msg small";
+      box.setAttribute("role", "status");
+      origin.insertAdjacentElement("afterend", box);
+    }
+    box.innerHTML = html;
+  } else if (!msg) {
+    alert(html.replace(/<[^>]+>/g, ""));
+  }
+}
+const escHtml = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function startLookup(query, force = false, origin = null) {
   const msg = $("#lookup-msg"), btn = $("#go");
   if (busy) return;
   busy = true;
@@ -20,17 +40,16 @@ async function startLookup(query, force = false) {
     if (d.choose) {  // umbrella name like "Google": ask which product
       busy = false;
       if (btn) { btn.disabled = false; btn.textContent = label; }
-      const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-      const html = `"${esc(query)}" covers a few products with very different review paths. Which one? ` +
-        d.choose.map((c) => `<a href="#" data-try="${esc(c)}">${esc(c)}</a>`).join(" · ");
-      if (msg) msg.innerHTML = html; else alert(d.choose.join(", "));
+      const html = `"${escHtml(query)}" covers a few products with very different review paths. Which one? ` +
+        d.choose.map((c) => `<a href="#" data-try="${escHtml(c)}">${escHtml(c)}</a>`).join(" · ");
+      say(html, origin);
       return;
     }
     location.href = d.existing || d.watch;
   } catch (e) {
     busy = false;
     if (btn) { btn.disabled = false; btn.textContent = label; }
-    if (msg) msg.textContent = e.message; else alert(e.message);
+    say(escHtml(e.message), origin);
   }
 }
 
@@ -59,14 +78,14 @@ window.addEventListener("pageshow", () => {
 });
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-try]");
-  if (t) { e.preventDefault(); startLookup(t.dataset.try, !!t.dataset.force); }
+  if (t) { e.preventDefault(); startLookup(t.dataset.try, !!t.dataset.force, t); }
   const c = e.target.closest("[data-copy]");
   if (c) copyText(c, c.dataset.copy, "Copied");
   const l = e.target.closest("[data-copy-link]");
   if (l) copyText(l, location.href.split("#")[0], "Link copied");
   if (e.target.closest("[data-print]")) window.print();
   const tf = e.target.closest("#try-filter");
-  if (tf) { e.preventDefault(); startLookup($("#filter").value.trim()); }
+  if (tf) { e.preventDefault(); startLookup($("#filter").value.trim(), false, tf); }
 });
 
 $("#filter")?.addEventListener("input", (e) => {

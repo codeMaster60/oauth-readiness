@@ -189,3 +189,5 @@ td.cite, .path .cite, .gotcha .cite, .blocker .cite, .limit .cite { margin-left:
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 .lookup button[disabled] { opacity: .6; cursor: progress; }
 a.btn { display: inline-block; text-decoration: none; }
+
+.row-msg { margin-top: 6px; max-width: 28rem; padding-left: 8px; border-left: 3px solid var(--d3); color: var(--ink); line-height: 1.4; }

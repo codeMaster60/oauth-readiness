@@ -169,11 +169,11 @@ async def generate(req: GenReq, request: Request):
         g = store.find(q)
         if g:
             return {"existing": f"/guides/{g.slug}"}
+    choices = pipeline.umbrella_choices(q)
+    if choices:  # "Google" is five different review paths; ask instead of guessing (needs no model quota)
+        return {"choose": choices}
     if llm.out_of_quota:  # every run would fail; say so now instead of after ten minutes
         raise HTTPException(503, pipeline.friendly_error(pipeline.LLMError("daily")))
-    choices = pipeline.umbrella_choices(q)
-    if choices:  # "Google" is five different review paths; ask instead of guessing
-        return {"choose": choices}
     running = pipeline.running_job_for(q)
     if running:  # someone is already researching this one, watch that run
         return {"job": running.id, "watch": f"/generate/{running.id}"}

@@ -14,8 +14,10 @@
   </form>
   <p class="hint" id="lookup-msg">
     {% if live and out_of_quota %}<b>The live agent is out of free model quota for today.</b> The hand-checked guides still work, and live lookups come back once it resets.{% elif live %}The live agent is on.{% else %}<b>The live agent is off on this server</b> (no GROQ_API_KEY). The hand-checked guides still work.{% endif %}
+    {% if out_of_quota %}Try <a href="/guides/google-gmail">Gmail</a>, <a href="/guides/slack">Slack</a> or
+    <a href="/guides/hubspot">HubSpot</a>, all hand-checked.{% else %}
     Try <a href="#" data-try="Gmail">Gmail</a>, <a href="#" data-try="Zoom">Zoom</a>,
-    <a href="#" data-try="Asana">Asana</a>, <a href="#" data-try="dropbox.com">dropbox.com</a>.
+    <a href="#" data-try="Asana">Asana</a>, <a href="#" data-try="dropbox.com">dropbox.com</a>.{% endif %}
   </p>
 </section>
 
@@ -85,11 +87,11 @@
           <td><a href="/guides/{{ r.guide.slug }}">Open →</a></td>
         {% else %}
           <td><span class="tag">not yet</span></td>
-          <td><a href="#" data-try="{{ r.name }}">Generate →</a></td>
+          <td>{% if out_of_quota %}<span class="muted small" title="The free model quota is used up for today">Paused for today</span>{% else %}<a href="#" data-try="{{ r.name }}">Generate →</a>{% endif %}</td>
         {% endif %}
       </tr>
     {% endfor %}
-      <tr id="no-match" hidden><td colspan="4" class="muted">No apps match that. <a href="#" id="try-filter">Look it up live instead →</a></td></tr>
+      <tr id="no-match" hidden><td colspan="4" class="muted">No apps match that.{% if not out_of_quota %} <a href="#" id="try-filter">Look it up live instead →</a>{% else %} Live lookups are paused until the free model quota resets.{% endif %}</td></tr>
     </tbody>
   </table></div>
 </section>
