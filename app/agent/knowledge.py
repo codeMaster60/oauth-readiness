@@ -13,7 +13,7 @@ from .web import Page
 
 KNOWN: dict[str, dict] = {
     "google.com": {
-        "label": "Google OAuth verification (hand-checked)",
+        "label": "Google (hand-checked)",
         "facts": [
             ("timeline", "Brand verification typically takes 2-3 business days.",
              "The brand verification process typically takes 2-3 business days after submission.",
@@ -35,6 +35,13 @@ KNOWN: dict[str, dict] = {
     },
 }
 
+TITLES = {
+    "https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification": "brand verification",
+    "https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification": "sensitive scope verification",
+    "https://support.google.com/cloud/answer/13465431": "security assessment (CASA)",
+    "https://support.google.com/cloud/answer/15549945": "app audience, test users and caps",
+}
+
 FAMILY_ALIASES = {"googleapis.com": "google.com", "youtube.com": "google.com", "gmail.com": "google.com"}
 
 
@@ -51,7 +58,7 @@ def known_pages(official_domains: set[str], name: str) -> list[Page]:
         for topic, claim, quote, url in entry["facts"]:
             p = by_url.get(url)
             if p is None:
-                p = by_url[url] = Page(url=url, title=entry["label"], text="", official=True)
+                p = by_url[url] = Page(url=url, title=f'{entry["label"]}: {TITLES.get(url, url)}', text="", official=True)
                 p.known = []  # type: ignore[attr-defined]
             p.text += quote + "\n"
             p.known.append((topic, claim, quote))  # type: ignore[attr-defined]

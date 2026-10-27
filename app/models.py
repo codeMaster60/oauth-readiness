@@ -183,13 +183,23 @@ class Guide(BaseModel):
 # Rubric
 # ---------------------------------------------------------------------------
 
-LABELS = {
-    1: "Self-serve · minutes",
-    2: "Easy · same day",
-    3: "Review needed · days",
-    4: "Hard · weeks of waiting",
-    5: "Gated · approval not guaranteed",
-}
+WORDS = {1: "Self-serve", 2: "Easy", 3: "Review needed", 4: "Hard", 5: "Gated"}
+# Kept for the evidence page: what each number means in words.
+LABELS = {1: "Self-serve", 2: "Easy", 3: "Review needed", 4: "Hard", 5: "Gated"}
+
+
+def label(f: "Flags", d: int) -> str:
+    """Difficulty word + how long you actually wait, so the headline can't contradict the wait line."""
+    w = f.review_wait_days_max or 0
+    if f.partner_gated:
+        when = "approval not guaranteed"
+    elif f.review_for_production and w >= 14:
+        when = "weeks"
+    elif f.review_for_production:
+        when = "days"
+    else:
+        when = "minutes" if d == 1 else "same day"
+    return f"{WORDS[d]} · {when}"
 
 
 def score(f: Flags) -> tuple[int, list[str]]:

@@ -23,6 +23,8 @@ def test_curated_guides_are_consistent(f):
     g = Guide.model_validate_json(f.read_text())
     # Stored difficulty must equal the rubric: no hand-tuned scores.
     assert g.verdict.difficulty == score(g.flags)[0]
+    from app.models import label
+    assert g.verdict.label == label(g.flags, g.verdict.difficulty)
     ids = {s.id for s in g.sources}
     for claim in g.iter_claims():
         for sid in claim.sources:

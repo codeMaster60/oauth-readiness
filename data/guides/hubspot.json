@@ -9,7 +9,7 @@
   "model": "",
   "verdict": {
     "difficulty": 4,
-    "label": "Hard · weeks of waiting",
+    "label": "Hard · weeks",
     "summary": "Building is self-serve, but an unlisted app stops at 25 installs. Customer 26 just can't install it. Getting past that means a marketplace listing, which needs real installs first and a review HubSpot says should wrap up within 60 days of their feedback.",
     "active_effort": "1–2 hours (CLI project setup); 1–2 days for the listing",
     "wait": "None for your first 25 installs; listing review up to ~60 days",

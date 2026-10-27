@@ -51,7 +51,9 @@
     <tr><td>Paid plan or fee required</td><td>+1</td></tr>
     <tr><td>Install cap until reviewed</td><td>+0.5</td></tr>
   </table></div>
-  <p>Rounded, clamped to 1–5. Labels: {% for k, l in labels.items() %}<b>{{ k }}</b> {{ l }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+  <p>Rounded, clamped to 1–5. Words: {% for k, l in labels.items() %}<b>{{ k }}</b> {{ l }}{% if not loop.last %} · {% endif %}{% endfor %}.
+    The second half of the label comes from the wait itself: minutes, same day, days, weeks, or "approval not guaranteed"
+    when access is at the provider's discretion. That way the headline can't say "same day" next to a week-long review.</p>
 
   <h2 id="agent">What the live agent actually does</h2>
   <ol>{% for s in v.pipeline %}<li>{{ s }}</li>{% endfor %}</ol>

@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 import httpx
 
-from ..models import (LABELS, AgentSplit, Blocker, ComposioInfo, Flags, Gotcha, Guide, Note, PathOption,
+from ..models import (LABELS, AgentSplit, label, Blocker, ComposioInfo, Flags, Gotcha, Guide, Note, PathOption,
                       Probe, Requirement, Source, Stage, Stats, Step, Verdict, score)
 from . import probe as probes
 from .knowledge import known_pages
@@ -243,6 +243,18 @@ def wait_days(text: str) -> Optional[int]:
     return best
 
 
+HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
+                        r"accept (?:the )?terms|upload (?:a |the )?(?:video|id)|\bclick\b", re.I)
+
+
+def split_work(raw: dict) -> AgentSplit:
+    """An agent can draft a demo script; it can't record the video or click submit. Move those to 'you'."""
+    agent = [str(v) for v in raw.get("agent", [])]
+    you = [str(v) for v in raw.get("you", [])]
+    moved = [a for a in agent if HUMAN_ONLY.search(a)]
+    return AgentSplit(agent=[a for a in agent if a not in moved], you=you + [m for m in moved if m not in you])
+
+
 def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict], probe_list: list[Probe],
                 pages: list[Page], composio: tuple[str, str, Optional[str]], model: str, stats: Stats) -> Guide:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -387,7 +399,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         updated=stamp,
         model=model,
         verdict=Verdict(
-            difficulty=d, label=LABELS[d],
+            difficulty=d, label=label(flags, d),
             summary=vt.get("summary") or "", active_effort=vt.get("active_effort") or "unknown",
             wait=vt.get("wait") or "unknown", gating_step=vt.get("gating_step") or "unknown",
         ),
@@ -400,8 +412,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         requirements=requirements,
         gotchas=gotchas,
         blockers=blockers,
-        agent_split=AgentSplit(**{k: [str(v) for v in (draft.get("agent_split") or {}).get(k, [])]
-                                  for k in ("agent", "you")}),
+        agent_split=split_work(draft.get("agent_split") or {}),
         uncertainties=uncertainties,
         probes=probe_list,
         sources=sources,

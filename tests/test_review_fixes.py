@@ -138,3 +138,12 @@ def test_known_casa_fact_does_not_unlock_the_audit_point():
               "quote": "q", "url": "u", "official": True, "verified": True, "known": True}]
     g = _guide({"flags": {"review_for_production": True, "security_assessment": True}, "verdict": {}}, known)
     assert g.flags.security_assessment is False
+
+
+def test_label_matches_wait_and_human_tasks_stay_human():
+    g = _guide({"flags": {"review_for_production": True, "review_wait_days_max": 7}, "verdict": {},
+                "agent_split": {"agent": ["draft privacy policy", "record demo video", "submit verification"],
+                                "you": ["create OAuth client"]}})
+    assert g.verdict.label.endswith("days") and "same day" not in g.verdict.label
+    assert g.agent_split.agent == ["draft privacy policy"]
+    assert "record demo video" in g.agent_split.you and "submit verification" in g.agent_split.you
