@@ -5,7 +5,8 @@ Return: {"facts": [{"topic": T, "claim": C, "quote": Q}]}
 - T is one of: create_app, redirect, scopes, dev_limits, review, timeline, requirement, tokens, rate_limits, cost, gotcha
 - C: one short, specific, self-contained sentence in your own words (include numbers, limits, durations).
 - Q: an EXACT sentence or clause copied verbatim from the excerpt that supports C (max 30 words). Never invent text.
-- Only facts about the provider named by the user. Max 10 facts. Prefer: review/approval steps, wait times,
+- Only facts about the provider named by the user. Max 10 facts. Focus on user-authorized OAuth apps used by many
+  end users; if the page is about server-to-server / internal / personal-token apps, say so in one fact and stop. Prefer: review/approval steps, wait times,
   install/user caps before approval, required documents (privacy policy, demo video, company verification),
   security assessments, sensitive scopes, token expiry, redirect URI rules, rate limits for unapproved apps.
 - If the excerpt has nothing relevant, return {"facts": []}."""
@@ -22,6 +23,10 @@ SYNTH_SYSTEM = """You write a practical guide for a developer who must create an
 approved so their AI agent's users can connect their accounts. Use ONLY the numbered facts given.
 Cite facts with refs like ["F3","F7"]. A claim with no supporting fact must have refs [] (it will be marked uncertain).
 Be concrete and honest: if facts don't establish something (e.g. review time), say it is unknown.
+Scope: the developer needs a MULTI-USER, user-authorized OAuth app (authorization-code flow, each end user clicks
+"Allow"). Ignore server-to-server, client-credentials, service-account, internal-only or personal-token app types
+except to warn in gotchas that they don't fit this use case. Never put fact IDs (F1, P2) inside any text field;
+cite them only in "refs".
 Write for a busy developer: short sentences, no marketing. Output JSON only with exactly these keys:
 
 {

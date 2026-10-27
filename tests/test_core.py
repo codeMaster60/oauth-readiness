@@ -93,3 +93,21 @@ def test_model_pool_spreads_load():
     p.record(b, 5000)
     none, wait = p.pick(5000)
     assert none is None and wait > 0
+
+
+def test_fact_ids_never_reach_readers():
+    from app.agent.pipeline import clean, strip_refs
+    assert strip_refs("Tokens expire after one hour (F1,F7)") == "Tokens expire after one hour"
+    assert strip_refs("Use a wildcard per F26.") == "Use a wildcard."
+    assert strip_refs("Cited twice (F1 and F2)") == "Cited twice"
+    assert strip_refs("Office 365 and P2P stay") == "Office 365 and P2P stay"
+    assert clean({"text": "x (F3)", "refs": ["F3"]}) == {"text": "x", "refs": ["F3"]}
+
+
+def test_forums_are_not_official():
+    from app.agent.pipeline import is_official, rank_urls
+    assert is_official("https://developers.zoom.us/docs/integrations/oauth", {"zoom.us"})
+    assert not is_official("https://devforum.zoom.us/t/123", {"zoom.us"})
+    ranked = rank_urls([{"url": "https://developers.zoom.us/docs/internal-apps/s2s-oauth", "title": ""},
+                        {"url": "https://developers.zoom.us/docs/integrations/oauth", "title": ""}], {"zoom.us"}, None)
+    assert ranked[0][0].endswith("/integrations/oauth")  # server-to-server docs ranked below user OAuth

@@ -126,6 +126,45 @@ async def composio_status(name: str, client: httpx.AsyncClient) -> tuple[str, st
     return "unknown", "No Composio toolkit page found under this name.", None
 
 
+COMMUNITY_HOSTS = ("forum", "community", "discuss", "support.", "answers.", "stackoverflow", "devforum")
+OFF_TOPIC = ("server-to-server", "s2s", "internal-app", "client-credential", "service-account", "personal-access")
+
+
+def is_official(url: str, official: set[str]) -> bool:
+    """Provider's own docs. Forums and community sites on the same domain are user posts, not official."""
+    host = re.sub(r"^https?://", "", url).split("/")[0].lower()
+    return domain_of(url) in official and not any(c in host for c in COMMUNITY_HOSTS)
+
+
+_REF = r"[FP]\d{1,2}"
+_LIST = _REF + r"(?:\s*(?:,|;|/|&|\band\b)\s*" + _REF + r")*"
+PAREN_RE = re.compile(r"\s*\(\s*(?:see|per|from)?\s*" + _LIST + r"\s*\)")
+LEAD_RE = re.compile(r"\s*\b(?:per|see|from)\s+" + _LIST + r"\b")
+BARE_RE = re.compile(r"\b" + _LIST + r"\b")
+
+
+def strip_refs(text):
+    """Fact IDs are for us (citations), not for readers: remove '(F3, F7)', 'per F26' and stray 'F3'."""
+    if not isinstance(text, str):
+        return text
+    out = PAREN_RE.sub("", text)
+    out = LEAD_RE.sub("", out)
+    out = BARE_RE.sub("", out)
+    out = re.sub(r"\s+([,.;:)])", r"\1", out)      # space before punctuation
+    out = re.sub(r"([,;])\s*([,;.])", r"\2", out)   # doubled punctuation
+    out = re.sub(r"\(\s*\)", "", out)
+    out = re.sub(r"^\s*[,;]\s*", "", out)
+    return re.sub(r"\s{2,}", " ", out).strip()
+
+
+def clean(obj):
+    if isinstance(obj, dict):
+        return {k: (v if k == "refs" else clean(v)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean(v) for v in obj]
+    return strip_refs(obj)
+
+
 def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> list[tuple[str, str, bool]]:
     hints = ("oauth", "auth", "app", "review", "marketplace", "publish", "verif", "scope", "distribut",
              "partner", "developer", "listing", "consent", "rate-limit", "ratelimit")
@@ -135,8 +174,11 @@ def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> 
         if u in seen or not keep_url(u):
             continue
         seen.add(u)
-        off = domain_of(u) in official
-        s = (10 if off else 0) + sum(2 for h in hints if h in u.lower())
+        off = is_official(u, official)
+        low = u.lower()
+        s = (10 if off else 0) + sum(2 for h in hints if h in low)
+        # Internal / server-to-server app types don't serve an agent's end users.
+        s -= sum(6 for h in OFF_TOPIC if h in low)
         scored.append((s, u, r.get("title", ""), off))
     scored.sort(key=lambda x: -x[0])
     out, n_off, n_3p = [], 0, 0
@@ -306,7 +348,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
             if not p:
                 await job.emit("log", text=f"Could not read {u}")
                 continue
-            p.official = domain_of(p.url) in official or off
+            p.official = is_official(p.url, official) if p.url != (website or None) else off
             p.snippets = pick_snippets(p.text)
             if p.snippets:
                 pages.append(p)
@@ -387,6 +429,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
         SYNTH_USER.format(name=name, website=website or "unknown", facts=fact_lines, probes=probe_lines),
         pool="synth", max_tokens=3000, notify=notify)
     models_used.add(model)
+    draft = clean(draft)
     stats.seconds = round(time.time() - t0, 1)
     guide = build_guide(name, website, draft, facts, probe_list, pages, composio,
                         ", ".join(sorted(models_used)), stats)
