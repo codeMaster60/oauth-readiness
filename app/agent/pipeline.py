@@ -245,7 +245,11 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
 
     flags = Flags(**{k: v for k, v in (draft.get("flags") or {}).items() if k in Flags.model_fields})
     d, _ = score(flags)
-    vt = draft.get("verdict") or {}
+    vt = dict(draft.get("verdict") or {})
+    # Keep the headline consistent with the rubric: if no review gates real users, the wait can't read "2-10 weeks".
+    wait = str(vt.get("wait") or "unknown")
+    if not flags.review_for_production and not flags.partner_gated and not wait.lower().startswith("none"):
+        vt["wait"] = "None to connect users" + ("" if wait.lower() in ("unknown", "") else f" (optional listing review: {wait})")
     stages = []
     for st in draft.get("stages") or []:
         if not isinstance(st, dict):

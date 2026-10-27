@@ -317,7 +317,8 @@
     "Provider rules changed a lot in the last 18 months (GitHub tokens, Slack limits, HubSpot caps). Third-party guides and model memory lag behind, so the live agent always reads current pages and dates every source.",
     "Composio's managed apps remove the approval wait during development, but connections are tied to the app they were made with. Moving users to your own app later forces everyone to reconnect. Every guide says when to switch.",
     "Model-written “quotes” sometimes aren't on the page. We now check every quote against the fetched text and downgrade unmatched claims to uncertain instead of trusting them.",
-    "The first production run (Zoom, 77s, 36 facts, 32 quotes verified, 2 live probes) produced a sensible 3/5 verdict, but reading it critically exposed three agent bugs: fact IDs leaking into prose, a developer forum labelled “official”, and Zoom's server-to-server app docs bleeding into a guide meant for multi-user OAuth. All three are now fixed in code and covered by tests. Live probes added something no doc said outright: Zoom shows its sign-in page before validating the client_id, so a bad client ID only surfaces after the user logs in."
+    "The first production run (Zoom, 77s, 36 facts, 32 quotes verified, 2 live probes) produced a sensible 3/5 verdict, but reading it critically exposed three agent bugs: fact IDs leaking into prose, a developer forum labelled “official”, and Zoom's server-to-server app docs bleeding into a guide meant for multi-user OAuth. All three are now fixed in code and covered by tests. Live probes added something no doc said outright: Zoom shows its sign-in page before validating the client_id, so a bad client ID only surfaces after the user logs in.",
+    "Running Asana twice gave 3/5 and then 2/5, and one draft paired “Easy · same day” with “2–10 weeks”. The rubric is deterministic, but the flags feeding it come from an LLM reading docs, so a provider whose review applies only to an optional directory listing can be read either way. We now define review_for_production strictly (users can't connect until approved) and force the wait text to agree with the score. Run-to-run variance is listed as a limitation; hand-checked guides don't have it."
   ],
   "pipeline": [
     "Check Composio's public toolkit page for managed-OAuth availability.",
@@ -334,6 +335,7 @@
     "DuckDuckGo search may throttle cloud servers; set TAVILY_API_KEY for reliable search, or paste the provider's docs URL instead of a name.",
     "On Render's free plan the disk isn't persistent, so generated guides disappear on redeploy (curated guides ship in the repo).",
     "“Tested” claims cover only the console steps a person actually tried; no app was submitted for real provider review.",
-    "Difficulty scoring is deliberately simple and transparent. Two providers with the same score can still feel different."
+    "Difficulty scoring is deliberately simple and transparent. Two providers with the same score can still feel different.",
+    "Generated scores can differ between runs for providers whose docs are ambiguous about whether review is optional (seen with Asana: 3/5 vs 2/5). Regenerate or check the ⚠️ items before relying on a generated score."
   ]
 }

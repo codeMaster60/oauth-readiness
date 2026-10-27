@@ -85,3 +85,12 @@ def test_run_without_key_reports_error():
     asyncio.run(pipeline.run(job, NoKey(), lambda g: None))
     assert job.error and "GROQ_API_KEY" in job.error
     assert job.events[-1]["type"] == "end"
+
+
+def test_wait_text_matches_score():
+    from app.agent.pipeline import build_guide
+    from app.models import Stats
+    draft = {"flags": {"review_for_production": False},
+             "verdict": {"summary": "s", "active_effort": "1h", "wait": "2-10 weeks", "gating_step": "listing"}}
+    g = build_guide("Acme", "", draft, [], [], [], ("unknown", "", None), "m", Stats())
+    assert g.verdict.difficulty == 1 and g.verdict.wait.startswith("None to connect users")

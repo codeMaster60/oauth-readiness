@@ -54,6 +54,8 @@ Write for a busy developer: short sentences, no marketing. Output JSON only with
  "agent_split": {"agent": [str], "you": [str]},
  "uncertainties": [str]
 }
+Consistency: "review_for_production" is true only if users beyond a test group CANNOT connect until the provider
+approves the app. An optional marketplace/directory listing review does not count. "verdict.wait" must match the flags.
 Rules: 4-7 build steps, 2-6 launch steps. The redirect/callback URL step must tell them to paste the Composio
 callback URL {redirect}. "agent" means an AI agent can do it (research, drafting justifications/privacy policy/
 demo script, filling config); "you" means a human must (sign up, accept terms, verify identity/business, pay,
