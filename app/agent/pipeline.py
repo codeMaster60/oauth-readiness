@@ -687,6 +687,9 @@ def friendly_error(e: Exception) -> str:
     msg = str(e)
     if "GROQ_API_KEY" in msg:
         return "The live agent is switched off on this server (no model key). The hand-checked guides still work."
+    if msg == "daily":
+        return ("Today's free model quota is used up (the live agent runs on a free tier). The hand-checked "
+                "guides still work, and live lookups come back once the quota resets.")
     if msg == "busy" or "capacity" in msg:
         return "The free model tier stayed busy for too long, usually because other runs were going at the same time. Give it a minute and try again."
     if isinstance(e, LLMError):

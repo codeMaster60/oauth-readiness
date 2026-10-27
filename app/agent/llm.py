@@ -48,12 +48,22 @@ def parse_json(text: str) -> dict:
         raise
 
 
+def retry_seconds(text: str) -> float:
+    """Groq says 'try again in 12m3.5s' or '1h2m' or '7.2s'. Read all of it, not just the seconds."""
+    m = re.search(r"try again in\s*(?:(\d+)h)?\s*(?:(\d+)m(?!s))?\s*(?:([\d.]+)s)?", text or "")
+    if not m or not any(m.groups()):
+        return 0.0
+    h, mi, se = m.groups()
+    return int(h or 0) * 3600 + int(mi or 0) * 60 + float(se or 0)
+
+
 class ModelPool:
     def __init__(self, models: list[str], tpm: int):
         self.models = [m.strip() for m in models if m.strip()]
         self.tpm = tpm
         self.usage: dict[str, deque] = {m: deque() for m in self.models}
         self.blocked_until: dict[str, float] = {}
+        self.daily: set[str] = set()  # models that hit the per-day cap, not the per-minute one
 
     def _used(self, m: str) -> int:
         q, now = self.usage[m], time.time()
@@ -63,17 +73,19 @@ class ModelPool:
 
     def pick(self, need: int) -> tuple[Optional[str], float]:
         """Best model for `need` tokens, or (None, seconds_to_wait)."""
-        now, best, best_free, wait = time.time(), None, -1, 60.0
+        now, best, best_free, wait = time.time(), None, -1, float("inf")
         for m in self.models:
             if self.blocked_until.get(m, 0) > now:
-                wait = min(wait, self.blocked_until[m] - now)
+                wait = min(wait, self.blocked_until[m] - now)  # a 12-minute daily cooldown stays 12 minutes
                 continue
             free = self.tpm - self._used(m)
             if free >= need and free > best_free:
                 best, best_free = m, free
             elif self.usage[m]:
                 wait = min(wait, 60 - (now - self.usage[m][0][0]) + 0.5)
-        return best, max(0.5, wait)
+            else:
+                wait = min(wait, 60.0)  # request bigger than a model's whole minute budget: try again later
+        return best, max(0.5, 60.0 if wait == float("inf") else wait)
 
     def record(self, m: str, tokens: int):
         self.usage[m].append((time.time(), tokens))
@@ -121,6 +133,10 @@ class Groq:
         attempts, last_notice = 0, 0.0
         while attempts < 8 and time.time() < deadline:
             model, wait = p.pick(need)
+            if model is None and wait > deadline - time.time():
+                # Every model is blocked for longer than we can wait. If that's the daily cap, say so now
+                # instead of sitting in one-minute waits until the budget runs out.
+                raise LLMError("daily" if p.daily else "busy")
             if model is None:
                 if notify and time.time() - last_notice > 20:
                     await notify(f"Waiting for free model capacity (about {wait:.0f}s). Busy when two runs share it.")
@@ -150,9 +166,10 @@ class Groq:
                 continue
             if r.status_code == 429:
                 ra = float(r.headers.get("retry-after", "0") or 0)
-                m = re.search(r"try again in ([\d.]+)s", r.text)
-                secs = max(ra, float(m.group(1)) if m else 0, 3)
+                secs = max(ra, retry_seconds(r.text), 3)
                 p.block(model, secs)
+                if re.search(r"per day|\bTPD\b|\bRPD\b", r.text):
+                    p.daily.add(model)
                 last_err = f"429 on {model}"
                 continue
             if r.status_code in (400, 404) and re.search(

@@ -447,3 +447,32 @@ def test_non_breaking_hyphen_auth_flow_is_people_work():
         {"title": "Run authorization\u2011code flow", "detail": "Use the URL.", "who": "either", "refs": []}]}]}
     g = _guide(draft)
     assert next(x for x in g.stages[0].steps if x.title.startswith("Run")).who == "you"
+
+
+def test_daily_cap_fails_fast_with_an_honest_message(monkeypatch):
+    from app.agent import llm as L
+    from app.agent.pipeline import friendly_error
+    assert L.retry_seconds("Please try again in 12m3.5s.") == 723.5
+    assert L.retry_seconds("try again in 1h2m") == 3720
+    assert L.retry_seconds("try again in 7.2s") == 7.2
+    g = L.Groq(api_key="k")
+
+    class R:
+        status_code, headers = 429, {}
+        text = "Rate limit reached on tokens per day (TPD): Limit 200000. Please try again in 12m3.5s."
+    calls = []
+
+    async def post(*a, **k):
+        calls.append(1)
+        return R()
+
+    async def fake_sleep(_):
+        return None
+    monkeypatch.setattr(g.client, "post", post)
+    monkeypatch.setattr(L.asyncio, "sleep", fake_sleep)
+    try:
+        asyncio.run(g.json_call("s", "u", pool="synth"))
+        assert False, "should have raised"
+    except L.LLMError as e:
+        assert str(e) == "daily" and len(calls) == len(g.synth_pool.models)
+        assert "quota is used up" in friendly_error(e)
