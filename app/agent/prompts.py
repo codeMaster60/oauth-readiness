@@ -30,8 +30,9 @@ cite them only in "refs".
 Write for a busy developer: short sentences, no marketing. Output JSON only with exactly these keys:
 
 {
- "name": str, "category": str (e.g. "CRM", "Email", "Dev tools"),
- "use_case": str (the typical agent use case this guide assumes, e.g. "read and send email"),
+ "name": str (just the provider's product name, e.g. "Asana"), "category": str (e.g. "CRM", "Email", "Dev tools"),
+ "use_case": str (the MOST COMMON thing an AI agent does with this provider, in plain words, e.g. "read and send
+              email", "create and update tasks" - never a niche feature),
  "concept": str (2-3 sentences: what the provider calls its OAuth app, how it relates to the developer's integration
             and to each end-user's connection),
  "flags": {"review_for_production": bool, "review_wait_days_max": int|null, "security_assessment": bool,

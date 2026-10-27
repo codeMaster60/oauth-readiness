@@ -71,6 +71,7 @@ def test_full_run(monkeypatch):
     assert steps["Create app"].evidence == "documented"   # official page, quote verified
     assert steps["Check endpoint"].evidence == "probed"    # live probe
     assert steps["Fast approval"].evidence == "uncertain"  # hallucinated quote
+    assert g.name == "Acme" and g.slug == "acme"
     assert g.verdict.difficulty == 4                       # rubric: 1 +1 review +1 wait>=10 +0.5 cap = 3.5 -> 4
     assert g.stats.quotes_verified == 2
     types = [e["type"] for e in job.events]

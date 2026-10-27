@@ -265,8 +265,9 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
                           url="https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app",
                           kind="composio"))
     return Guide(
-        slug=slugify(draft.get("name") or name),
-        name=draft.get("name") or name,
+        # The name comes from the user's input, never the model (it once echoed prompt wording into the title).
+        slug=slugify(name),
+        name=name,
         website=website,
         category=draft.get("category") or "",
         use_case=draft.get("use_case") or "",
