@@ -158,6 +158,7 @@ td.cite, .path .cite, .gotcha .cite, .blocker .cite, .limit .cite { margin-left:
 .gen-sources li, .gen-log li { padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .gen-result { background: var(--paper); border: 1.5px solid var(--d1); border-radius: 12px; padding: 16px; margin-top: 18px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .gen-result.err { border-color: var(--d5); }
+.gen-result[hidden], [hidden] { display: none !important; }
 
 /* evidence page */
 .prose { max-width: 900px; }

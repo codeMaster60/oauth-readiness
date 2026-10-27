@@ -111,3 +111,11 @@ def test_forums_are_not_official():
     ranked = rank_urls([{"url": "https://developers.zoom.us/docs/internal-apps/s2s-oauth", "title": ""},
                         {"url": "https://developers.zoom.us/docs/integrations/oauth", "title": ""}], {"zoom.us"}, None)
     assert ranked[0][0].endswith("/integrations/oauth")  # server-to-server docs ranked below user OAuth
+
+
+def test_off_topic_pages_dropped_when_enough_on_topic():
+    from app.agent.pipeline import rank_urls
+    urls = [f"https://developers.zoom.us/docs/integrations/{x}" for x in ("oauth", "create", "scopes")]
+    urls.append("https://developers.zoom.us/docs/internal-apps/s2s-oauth")
+    ranked = rank_urls([{"url": u, "title": ""} for u in urls], {"zoom.us"}, None)
+    assert all("s2s" not in u for u, _, _ in ranked)

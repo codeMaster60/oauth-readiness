@@ -181,6 +181,10 @@ def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> 
         s -= sum(6 for h in OFF_TOPIC if h in low)
         scored.append((s, u, r.get("title", ""), off))
     scored.sort(key=lambda x: -x[0])
+    # Drop server-to-server / internal-app pages entirely when there are enough user-OAuth pages to read.
+    on_topic = [x for x in scored if not any(h in x[1].lower() for h in OFF_TOPIC)]
+    if sum(1 for x in on_topic if x[3]) >= 3:
+        scored = on_topic
     out, n_off, n_3p = [], 0, 0
     if first:
         out.append((first, "", True))
