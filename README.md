@@ -1,114 +1,118 @@
 # OAuth Readiness
 
-**Will this OAuth app take an hour, or block your launch for weeks?**
+Creating an OAuth app takes ten minutes. Getting it approved can take ten weeks. And nobody tells you which one you're in for until you're already in it.
 
-A developer building an AI agent types the app their users need to connect (e.g. "Gmail", "zoom.us"). They get:
+This is a small tool for that. You type the app your users need to connect (Gmail, Slack, Zoom, whatever) and you get a guide that starts with the thing you actually want to know: how long is this going to take, and what's going to block me.
 
-- a **verdict** (difficulty 1–5, hands-on effort, wait time, and the single step that gates production);
-- **ordered steps**, split into what works today and what production needs;
-- **requirements, gotchas and blocker fixes**;
-- **what an agent can do vs. where a human must take over**.
+**Live:** https://oauth-readiness.onrender.com
+It's on Render's free plan, so if nobody's opened it in a while the first load takes about 50 seconds. It wakes up.
 
-Every claim is tagged with how we know it: ✅ tested · 🛰️ probed live · 📄 official docs · 🔗 third-party · ⚠️ uncertain.
+## What's in here
 
-If the app isn't in the library, an agent researches it **live** (about 1–3 min) and you watch it work: searching, reading the official docs, probing the provider's real endpoints, and writing a guide with the same structure. Every guide has a shareable link, plus Markdown and JSON versions so a developer's own coding agent can consume it.
+- **Six guides I checked by hand.** GitHub, Notion, LinkedIn, Slack, HubSpot, Gmail. Picked on purpose so they cover the whole range, from "done in ten minutes" to "you might never get approved".
+- **A live agent for everything else.** Type any app, watch it read the provider's docs, poke at its real login endpoints, and write a guide in a minute or two.
+- **Every claim says how I know it:** `tested`, `probed live`, `from docs`, `third-party`, or `not verified`.
+- **Every guide is shareable.** A link, plus Markdown and JSON so your own coding agent can read it.
+- **An evidence page (`/evidence`)** with what I tested, what I corrected, and what I couldn't confirm.
 
-- **Live:** https://oauth-readiness.onrender.com (free Render plan: the first load after idle can take ~50s to wake up)
-- **Evidence & method:** `/evidence` lists the setup attempts, claims checked against sources, what we corrected, and what we couldn't verify.
+## Why the verdict comes first
 
----
+When I started, I assumed the hard part was the setup. It isn't. I created apps on GitHub, Slack and Google Cloud while building this. The longest one took about 20 minutes.
 
-## The problem, and the scope I chose
+The hard part is what comes after, and it's different for every provider:
 
-Creating an OAuth app takes minutes with every provider. What developers can't easily see is **what gates production**, and that's different for each one:
-
-| Provider | Creating the app | What actually gates launch |
+| App | Making it | What actually holds up launch |
 |---|---|---|
-| GitHub | minutes | Customer orgs block OAuth apps by default until an owner approves |
-| Notion | minutes | Nothing, but one permanent setting at creation rules out the Marketplace |
-| LinkedIn | minutes | 60-day tokens with no refresh (unless partner); company Pages are vetted |
-| Slack | minutes | Unlisted apps get 1 req/min history APIs; listing needs 10 installs + up to ~12 weeks |
-| HubSpot | ~1 hour (CLI) | Hard cap of 25 installs until the Marketplace listing is approved |
-| Gmail | ~1 hour | Restricted-scope review + paid annual CASA security audit (weeks) |
+| GitHub | ~3 min (I timed it) | Your customer's GitHub org blocks OAuth apps by default until an owner approves yours |
+| Notion | minutes | Nothing, but one setting you pick at creation can never be changed |
+| LinkedIn | minutes | Tokens die after 60 days. Company pages need a separate, vetted application |
+| Slack | ~15 min | Unlisted apps get history APIs throttled to 1 request a minute. Listing needs 10 active workspaces and up to ~12 weeks of review |
+| HubSpot | about an hour | Hard stop at 25 installs until your marketplace listing is approved |
+| Gmail | ~20 min | Reading mail means restricted-scope review plus a paid security audit, every year |
 
-So the product is focused on **the path to production approval**, not on re-documenting console clicks. Each guide leads with the gate. It also shows how the scope you choose changes the path (Gmail send-only takes days; Gmail read takes weeks plus an audit), so developers decide before writing code.
+So every guide opens with four things: difficulty out of 5, hands-on time, waiting time, and the one step most likely to hold you up. Steps come after.
 
-**How the provider OAuth app relates to integrations and users.** You register one OAuth app per provider. In Composio, it becomes an auth config; until you have one, Composio's managed app stands in. Each user who clicks "Allow" creates a connection tied to *that* app. Switching apps later forces every user to reconnect. Each guide therefore opens with **"Do you need your own app?"**: when Composio's managed app is enough, and when to bring your own (branding, custom scopes, dedicated rate limits, faster polling).
+The other thing I didn't expect: sometimes the scope you pick matters more than the provider. Gmail send-only goes through a few days of review. Ask to read mail and it's restricted, weeks plus an audit. I watched Google sort the two into different buckets in the console. So guides have a "pick your path" bit before any steps.
 
-## What's in this slice
+## The Composio bit
 
-- **6 hand-checked guides** chosen to span the range: GitHub (1/5), Notion (1/5), LinkedIn (2/5), Slack (4/5), HubSpot (4/5), Gmail (5/5).
-- **The 100-app catalog**: the target library. Ready guides open instantly; any other app is one click from a live agent run.
-- **Live agent generation** for any app name or URL, streamed to the browser.
-- **The `/evidence` page**: setup attempts, 14 sampled claims (confirmed / corrected / conflict / unverified), lessons learned, the rubric, and limitations.
+You don't always need your own OAuth app. Composio has managed apps for most providers, which is fine while you're building. You'll want your own once your users should see your name instead of "Composio", or you need extra scopes, your own rate limits, or faster polling.
+
+The part that catches people: connections stick to the app they were made with. Move your users to your own app later and every single one of them reconnects. So every guide brings this up first, before you're in too deep.
 
 ## How the live agent works
 
-```
-name or URL
-  → Composio public toolkit page: is a managed OAuth app available?
-  → 4 targeted web searches → rank: provider's own domains first (≤2 third-party pages)
-  → fetch + clean pages → keep only OAuth/review/limits paragraphs (keyword scoring, no LLM)
-  → live probes, no account: /.well-known/openid-configuration, and the real authorize endpoint
-     with a fake client_id (shows the exact error a developer will hit)
-  → per-page fact extraction (small model); each fact must carry a verbatim quote
-  → code checks every quote is actually on the page; if not, the claim is downgraded to ⚠️ uncertain
-  → guide written by a larger model from numbered facts only, citing fact IDs
-  → difficulty computed by a fixed rubric from extracted flags (never the model's opinion)
-```
+1. Checks Composio's toolkit page for a managed app.
+2. Runs four searches and puts the provider's own docs first. Forums and blogs count as third-party.
+3. Opens the pages and keeps only the paragraphs about OAuth, review and limits. No model involved in that part, which keeps it inside the free tier.
+4. Pokes the real endpoints without logging in: the OpenID discovery file, and the actual login URL with a fake client ID, to see what error you'd hit.
+5. A small model pulls facts out of each page. Each fact needs a quote from that page.
+6. Code checks every quote is actually on the page. If it isn't, the claim gets marked `not verified`.
+7. A bigger model writes the guide from those facts only.
+8. The score comes from fixed rules, not the model.
 
-## Key decisions
+Two of those I care about more than the rest.
 
-1. **Lead with the verdict, not the steps.** The assignment's core question is "an hour or weeks?", so that's the first thing on every page.
-2. **Deterministic scoring.** The LLM extracts facts (e.g. "security assessment required", "max wait 60 days"), and a published rubric turns them into 1–5. Scores are comparable across apps and explainable ("Why 4/5?" on every guide).
-3. **Evidence is enforced in code, not requested in a prompt.** Model-quoted text is matched against the fetched page. Unmatched claims are shown as uncertain rather than hidden.
-4. **"Attempt", not just "read".** Without accounts, the agent still probes providers' real OAuth endpoints. Console steps that need a human login were tried by a person and logged on `/evidence`.
-5. **One schema for curated and generated guides.** The same page, Markdown export and JSON API serve both, and a test enforces that curated scores equal the rubric.
-6. **Free-tier friendly.** Groq's free tier allows about 8K tokens/min *per model*, so calls are spread across a model pool with a sliding-window token budget and `retry-after` handling. Pages are pre-filtered so only relevant paragraphs reach the model.
-7. **Composio-aware, provider-agnostic.** Guides work for anyone registering an OAuth app, with Composio specifics (managed-app status, callback URL, migration trap) where they matter.
+**The model doesn't get to make up quotes.** Models will invent a convincing line and cite it. So every quote gets checked against the page it supposedly came from. On the first real run (Zoom), 32 of 36 checked out. The other four show up as not verified instead of being quietly trusted.
 
-## Run locally
+**The model doesn't pick the score either.** It pulls facts out ("security audit required", "review takes up to 60 days") and a fixed set of rules turns those into 1 to 5. Every guide has a "Why 4/5?" that shows the math.
+
+The probes turned out more useful than I expected. For Zoom, the agent found the sign-in page loads before Zoom checks your client ID, so a wrong ID only shows up after the user has logged in. I couldn't find that written down anywhere. Small thing, but exactly the kind of thing that eats an afternoon.
+
+## What actually trying it changed
+
+Honestly, the most useful part of this whole thing was doing instead of reading.
+
+- GitHub's docs tell you to fill in "Authorization callback URL". That field doesn't exist anymore. The form says "Redirect URIs" now.
+- GitHub tokens expire by default since August 2026. Plenty of guides and libraries still say they never expire.
+- Slack's "From scratch" option is gone. It's "Blank app" now, followed by a four-step wizard that also installs the app.
+- Slack's own docs say 10 active workspaces before you can submit to the marketplace. A blog from this year says 5. I went with Slack.
+- Running my own agent on Zoom and Asana turned up five bugs in it: fact IDs leaking into sentences, a forum labelled official, server-to-server docs mixed into a user-login guide, a weird title, and a wait time that contradicted the score. All fixed, all covered by tests now.
+
+The full list, with sources, is on `/evidence`.
+
+## Running it yourself
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # add GROQ_API_KEY (free: https://console.groq.com/keys)
+cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
 pytest -q                       # 20 tests, no network needed
 ```
 
-Without `GROQ_API_KEY`, the curated library works and live generation reports that it's off.
+No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.
 
-## Deploy (Render, free)
+## Deploying (Render, free)
 
-1. New → **Blueprint** → select this repo (uses `render.yaml`).
-2. Set `GROQ_API_KEY`. Optionally set `TAVILY_API_KEY` for more reliable search from cloud IPs.
-3. Open the URL and run a live generation (e.g. "Zoom").
+1. New → Blueprint → pick this repo. It reads `render.yaml`.
+2. Add `GROQ_API_KEY`. Add `TAVILY_API_KEY` too (free) because search from cloud servers is flaky without it.
+3. Open the URL and try an app.
 
-## Limitations
+## Where it falls short
 
-- Generated guides are a strong first draft, limited by what search surfaces. Login-walled docs produce thin guides; pasting the provider's docs URL helps.
-- Live runs take about 1–3 min on the free tier; at most 2 run at once.
-- DuckDuckGo may throttle cloud servers. `TAVILY_API_KEY` fixes this.
-- Render's free disk is ephemeral, so generated guides are lost on redeploy (curated guides ship in the repo).
-- No app was submitted for real provider review. "Tested" covers only the console steps a person actually performed.
-- The scoring rubric is intentionally simple. Two 4/5 providers can still feel different, so read the gating step.
+- Live guides are a good first draft, not gospel. They're only as good as what search turns up, and docs behind a login come out thin.
+- Free-tier models are slow-ish, so a live run is a minute or two and only two run at once.
+- Live scores can wobble between runs when a provider's docs are vague. Asana went 3/5, then 2/5. It's written up on `/evidence` rather than hidden.
+- Render's free plan forgets generated guides on redeploy. The hand-checked ones live in the repo.
+- "Tested" means I clicked through it. I didn't submit anything for real review, so review timelines come from docs, not experience.
+- The scoring is simple on purpose. Two apps that both score 4 can still feel very different, so read the line about what blocks launch.
 
-## Repo layout
+## Where things live
 
 ```
-app/main.py            routes: library, guide pages, live run (SSE), Markdown/JSON, evidence
-app/models.py          guide schema + difficulty rubric
-app/agent/pipeline.py  the live agent (steps above) and job/event streaming
-app/agent/web.py       search, fetch, paragraph selection, quote verification
-app/agent/probe.py     account-free live probes of OAuth endpoints
-app/agent/llm.py       Groq client: model pool, token budgeting, retries
-app/agent/prompts.py   extraction and synthesis prompts
-data/guides/*.json     the 6 hand-checked guides
-data/catalog.json      the 100-app catalog
-data/verification.json setup attempts, claim checks, lessons, limitations
-tests/                 rubric, evidence rules, quote checks, end-to-end agent run with fakes
+app/main.py            routes: library, guides, live runs, markdown/json, evidence
+app/models.py          the guide format and the scoring rules
+app/agent/pipeline.py  the live agent
+app/agent/web.py       search, fetching, picking paragraphs, checking quotes
+app/agent/probe.py     poking real OAuth endpoints without logging in
+app/agent/llm.py       Groq client: spreads load across models to stay in the free tier
+app/agent/prompts.py   what the models are told
+data/guides/*.json     the six hand-checked guides
+data/catalog.json      the 100-app list
+data/verification.json setup notes, checked claims, lessons, limitations
+tests/                 scoring, evidence rules, quote checks, a full fake agent run
 ```
 
-No credentials are stored in this repo. Keys are read from environment variables only.
+No keys in here. Everything reads from environment variables.

@@ -3,19 +3,20 @@
 {% block main %}
 <article class="prose">
   <p class="eyebrow">Evidence &amp; method</p>
-  <h1>What we tested, what sources say, and what we couldn't verify</h1>
+  <h1>What I tested, what the docs say, and what I couldn't confirm</h1>
   <p class="lede">{{ v.intro }}</p>
 
-  <h2 id="legend">How every claim is tagged</h2>
+  <h2 id="legend">How to read the tags</h2>
+  <p>Every claim on every guide carries one of these. It's the first thing I'd want to know before trusting a step.</p>
   <table class="legend">
-    <tr><td><span class="ev ev-tested">✅ tested</span></td><td>A person actually did it in the provider's console during this project (see setup attempts below).</td></tr>
-    <tr><td><span class="ev ev-probed">🛰️ probed live</span></td><td>The agent made an anonymous request to the provider's real endpoint and observed the behaviour.</td></tr>
-    <tr><td><span class="ev ev-documented">📄 official docs</span></td><td>Stated in the provider's own documentation. For generated guides, the supporting quote was found word-for-word on the fetched page.</td></tr>
-    <tr><td><span class="ev ev-third_party">🔗 third-party</span></td><td>Only a non-official source says it (vendor blog, integration platform docs).</td></tr>
-    <tr><td><span class="ev ev-uncertain">⚠️ uncertain</span></td><td>Inferred, contradictory, or the model's "quote" was not on the page. Don't rely on it without checking.</td></tr>
+    <tr><td><span class="ev ev-tested">{{ EV.tested }}</span></td><td>I actually did this in the provider's console while building this. Notes below.</td></tr>
+    <tr><td><span class="ev ev-probed">{{ EV.probed }}</span></td><td>The agent hit the provider's real endpoint, no login, and wrote down what happened.</td></tr>
+    <tr><td><span class="ev ev-documented">{{ EV.documented }}</span></td><td>The provider's own docs say so. For generated guides, the quote was found word for word on the page.</td></tr>
+    <tr><td><span class="ev ev-third_party">{{ EV.third_party }}</span></td><td>Only someone else says it. A blog, a vendor, a forum. Probably right, not guaranteed.</td></tr>
+    <tr><td><span class="ev ev-uncertain">{{ EV.uncertain }}</span></td><td>Inferred, contradicted somewhere, or the "quote" wasn't on the page. Check before you rely on it.</td></tr>
   </table>
 
-  <h2 id="attempts">Setup attempts</h2>
+  <h2 id="attempts">What happened when I tried it</h2>
   {% for a in v.attempts %}
   <div class="attempt">
     <h3>{{ a.app }} <span class="tag {{ 'ready' if a.status == 'done' else '' }}">{{ a.status }}</span></h3>
@@ -24,9 +25,9 @@
   </div>
   {% endfor %}
 
-  <h2 id="checks">Sample of claims checked against sources</h2>
+  <h2 id="checks">Claims I checked, and how they held up</h2>
   <table class="checks">
-    <thead><tr><th>Claim</th><th>Result</th><th>What we found</th><th>Source</th></tr></thead>
+    <thead><tr><th>Claim</th><th>Result</th><th>What I found</th><th>Source</th></tr></thead>
     {% for c in v.checks %}
     <tr><td>{{ c.claim }}<div class="muted small">{{ c.app }}</div></td>
       <td><span class="res res-{{ c.result }}">{{ c.result }}</span></td>
@@ -35,11 +36,11 @@
     {% endfor %}
   </table>
 
-  <h2 id="learned">What we learned (and changed because of it)</h2>
+  <h2 id="learned">What I learned, and what I changed because of it</h2>
   <ul>{% for l in v.learned %}<li>{{ l }}</li>{% endfor %}</ul>
 
-  <h2 id="rubric">Difficulty rubric</h2>
-  <p>The agent never picks the score. It extracts facts into flags; this fixed rubric turns flags into 1–5.</p>
+  <h2 id="rubric">How the score works</h2>
+  <p>The model never picks the number. It pulls facts out of the docs, and these rules turn them into a 1 to 5. Same facts, same score, every time.</p>
   <table class="legend">
     <tr><td>Base</td><td>1 point (create the app)</td></tr>
     <tr><td>Provider review before real users / scale</td><td>+1</td></tr>
@@ -52,10 +53,10 @@
   </table>
   <p>Rounded, clamped to 1–5. Labels: {% for k, l in labels.items() %}<b>{{ k }}</b> {{ l }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
 
-  <h2 id="agent">How the live agent works</h2>
+  <h2 id="agent">What the live agent actually does</h2>
   <ol>{% for s in v.pipeline %}<li>{{ s }}</li>{% endfor %}</ol>
 
-  <h2 id="limits">Known limitations</h2>
+  <h2 id="limits">Where it falls short</h2>
   <ul>{% for l in v.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
 </article>
 {% endblock %}

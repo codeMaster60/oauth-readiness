@@ -1,5 +1,5 @@
 {
-  "intro": "The six hand-checked guides were researched by an AI agent (Claude) reading provider docs, then cross-checked claim by claim. Where docs and the wider web disagreed, we kept the official source and recorded the conflict here. A person then tried parts of the setup in real consoles. Generated guides go through an automated version of the same discipline: every fact must carry a quote, and quotes not found on the source page are marked uncertain.",
+  "intro": "I didn't want this to be one more page of confident steps that turn out to be two years old. So the six hand-checked guides started from the providers' own docs, got checked claim by claim, and then I went and tried the setup on GitHub, Slack and Google Cloud myself. Where the docs and the rest of the internet disagreed, I went with the docs and wrote the disagreement down here. Guides the agent writes live follow the same rule, just automatically: every fact needs a quote from the page, and if the quote isn't actually there, the claim gets marked not verified.",
   "attempts": [
     {
       "app": "GitHub",
@@ -22,9 +22,9 @@
       "observed": [
         "“Create New App” now opens a dialog with templates (“AI agent”, “Starter app”) and “Blank app” / “From a manifest”. The “From scratch” option named in most guides is gone.",
         "Blank app runs a 4-step wizard (details → scopes → events → review) ending in “Create and Install”, which installs into the dev workspace immediately.",
-        "Redirect URLs accepted both the Composio https URL and a test http://example.com/callback without error. We deleted the http one.",
-        "The OAuth & Permissions page shows the live Bot User OAuth Token in plain text, plus new options: token rotation (requires a redirect URL first), PKCE opt-in, and Enterprise-Managed Authorization. We revoked the token after the screenshot exposed it.",
-        "Manage Distribution checklist: Enable Features & Functionality ✓, Add OAuth Redirect URLs ✓, Use HTTPS For Your Features ✓ (all automatic), and Remove Hard Coded Information (manual confirmation).",
+        "Redirect URLs accepted both the Composio https URL and a test http://example.com/callback without error. I deleted the http one.",
+        "The OAuth & Permissions page shows the live Bot User OAuth Token in plain text, plus new options: token rotation (requires a redirect URL first), PKCE opt-in, and Enterprise-Managed Authorization. I revoked the token after the screenshot exposed it.",
+        "Manage Distribution checklist: Enable Features & Functionality (ticked), Add OAuth Redirect URLs (ticked), Use HTTPS For Your Features (ticked) (all automatic), and Remove Hard Coded Information (manual confirmation).",
         "“Activate Public Distribution” took effect instantly, with no review. The page then showed a shareable install URL and an Installation Count: 0 active workspaces in the past 28 days, updated every 24 hours.",
         "Left menu: “Submit to Slack Marketplace” has 5 parts: App Listing, Review scopes, Security and compliance, Testing information, Automated checks.",
         "Total time including creating the workspace: about 15 minutes."
@@ -50,7 +50,7 @@
       "app": "GitHub",
       "claim": "GitHub's form field is called “Authorization callback URL”.",
       "result": "corrected",
-      "finding": "Found only by actually trying it: GitHub's docs still say “Authorization callback URL”, but the live form shows a “Redirect URIs” section with per-URI wildcard checkboxes. The guide uses the on-screen wording so developers don't get stuck looking for a field that isn't there.",
+      "finding": "Only found this by actually trying it: GitHub's docs still say “Authorization callback URL”, but the live form shows a “Redirect URIs” section with per-URI wildcard checkboxes. The guide uses the on-screen wording so developers don't get stuck looking for a field that isn't there.",
       "sources": [
         {
           "title": "Setup attempt (this project)",
@@ -66,7 +66,7 @@
       "app": "Slack",
       "claim": "Create the app with “Create New App → From scratch”.",
       "result": "corrected",
-      "finding": "Found by trying it: the option is now “Blank app”, below new “AI agent” and “Starter app” templates, followed by a 4-step wizard that also installs the app. The guide uses the current wording.",
+      "finding": "Found this by trying it: the option is now “Blank app”, below new “AI agent” and “Starter app” templates, followed by a 4-step wizard that also installs the app. The guide uses the current wording.",
       "sources": [
         {
           "title": "Setup attempt (this project)",
@@ -126,7 +126,7 @@
       "app": "GitHub",
       "claim": "Any user can connect their org's repos once they authorize your OAuth app.",
       "result": "corrected",
-      "finding": "New organizations have OAuth app access restrictions on by default. Members can only request approval, and an org owner must approve. We added this as the GitHub launch gate.",
+      "finding": "New organizations have OAuth app access restrictions on by default. Members can only request approval, and an org owner must approve. I added this as the GitHub launch gate.",
       "sources": [
         {
           "title": "GitHub Docs: OAuth app access restrictions",
@@ -138,7 +138,7 @@
       "app": "Slack",
       "claim": "Marketplace submission requires 5 active workspace installs.",
       "result": "corrected",
-      "finding": "A recent third-party article (Aug 2026) quotes 5. Slack's own review guide says 10 active workspaces (used in the past 28 days) and blocks submission below that. We use 10.",
+      "finding": "A recent third-party article (Aug 2026) quotes 5. Slack's own review guide says 10 active workspaces (used in the past 28 days) and blocks submission below that. I use 10.",
       "sources": [
         {
           "title": "Slack: Marketplace review process",
@@ -198,7 +198,7 @@
       "app": "Google",
       "claim": "Restricted-scope (Gmail read) verification takes N weeks.",
       "result": "unverified",
-      "finding": "Google publishes no fixed timeline; we only found “several weeks or longer” attributed to Google by third parties. The guide says so and marks our 42-day scoring estimate as ours.",
+      "finding": "Google publishes no fixed timeline; I only found “several weeks or longer” attributed to Google by third parties. The guide says so and marks our 42-day scoring estimate as ours.",
       "sources": [
         {
           "title": "Restricted scope verification",
@@ -312,30 +312,30 @@
     }
   ],
   "learned": [
-    "The real question isn't “how do I create the app?” (minutes everywhere) but “what gates production?”, and the answer is different per provider: security audits (Google), install caps (HubSpot), rate limits (Slack), partner vetting (LinkedIn), customer-side admin approval (GitHub). So each guide leads with the gate, not the steps.",
-    "Scope choice often matters more than the provider: Gmail send-only is days, Gmail read is weeks plus an annual paid audit. We added “Pick your path” blocks so developers see this before writing code.",
-    "Provider rules changed a lot in the last 18 months (GitHub tokens, Slack limits, HubSpot caps). Third-party guides and model memory lag behind, so the live agent always reads current pages and dates every source.",
-    "Composio's managed apps remove the approval wait during development, but connections are tied to the app they were made with. Moving users to your own app later forces everyone to reconnect. Every guide says when to switch.",
-    "Model-written “quotes” sometimes aren't on the page. We now check every quote against the fetched text and downgrade unmatched claims to uncertain instead of trusting them.",
-    "The first production run (Zoom, 77s, 36 facts, 32 quotes verified, 2 live probes) produced a sensible 3/5 verdict, but reading it critically exposed three agent bugs: fact IDs leaking into prose, a developer forum labelled “official”, and Zoom's server-to-server app docs bleeding into a guide meant for multi-user OAuth. All three are now fixed in code and covered by tests. Live probes added something no doc said outright: Zoom shows its sign-in page before validating the client_id, so a bad client ID only surfaces after the user logs in.",
-    "Running Asana twice gave 3/5 and then 2/5, and one draft paired “Easy · same day” with “2–10 weeks”. The rubric is deterministic, but the flags feeding it come from an LLM reading docs, so a provider whose review applies only to an optional directory listing can be read either way. We now define review_for_production strictly (users can't connect until approved) and force the wait text to agree with the score. Run-to-run variance is listed as a limitation; hand-checked guides don't have it."
+    "Making the app is never the hard part. It took me 3 minutes on GitHub, about 15 on Slack, about 20 on Google. What actually holds up a launch is different for every provider: a paid security audit (Google), a 25-install cap (HubSpot), throttled APIs until you're listed (Slack), partner vetting (LinkedIn), or your customer's own org admin (GitHub). So every guide leads with that, and the steps come after.",
+    "Sometimes the scope matters more than the provider. Gmail send-only is a few days of review. The moment you want to read mail it's restricted, which means weeks plus a paid audit every year. I watched Google sort the two into different buckets in the console. That's why guides have a \"pick your path\" bit before any steps.",
+    "A lot changed in the last year and a half. GitHub tokens expire now, Slack throttled unlisted apps, HubSpot capped installs. Blog posts and model memory lag behind all of it, so the live agent always reads today's pages and dates every source.",
+    "Composio's managed apps let you skip the approval wait while you build. The catch is that connections stick to the app they were made with, so moving users to your own app later means everyone reconnects. Every guide says this up front.",
+    "Models will happily invent a quote. So every quote gets checked against the page it supposedly came from, and anything that doesn't match is shown as not verified instead of quietly trusted.",
+    "The first real run (Zoom) looked decent on the surface: 3/5, 36 facts, 32 quotes checked out, 2 live probes. Reading it properly showed three bugs in my own agent: fact IDs leaking into sentences, Zoom's forum labelled as official, and Zoom's server-to-server docs mixed into a guide about user logins. All fixed, all tested now. The probes also turned up something I couldn't find in Zoom's docs: the sign-in page loads before Zoom checks your client ID, so a wrong ID only shows up after the user logs in.",
+    "Running Asana twice gave 3/5 and then 2/5, and one version said \"Easy, same day\" right next to \"2 to 10 weeks\". The score rules are fixed, but the facts feeding them come from a model reading docs, and Asana's docs are a bit vague about whether review is optional. I tightened what counts as a review, made the wait line agree with the score, and listed the variance below instead of pretending it isn't there."
   ],
   "pipeline": [
-    "Check Composio's public toolkit page for managed-OAuth availability.",
-    "Run four targeted searches (create app, OAuth docs, app review, verification and limits) and rank results: the provider's own domains first, at most two third-party pages.",
-    "Fetch pages and keep only paragraphs about OAuth, review, limits and timelines (keyword scoring, no LLM) to fit the free-tier token budget.",
-    "Probe live endpoints without an account: the OpenID discovery document, and the real authorize endpoint called with a fake client_id to observe the error a developer will see.",
-    "Extract facts per page with a small model. Each fact must include a verbatim quote, which code then checks against the page text.",
-    "Write the guide with a larger model from the numbered facts only, citing fact IDs. Uncited claims are marked uncertain.",
-    "Compute difficulty with the fixed rubric from extracted flags, never from the model's opinion."
+    "Checks Composio's public toolkit page to see if there's already a managed app.",
+    "Runs four searches (creating the app, the OAuth docs, app review, verification and limits) and puts the provider's own pages first. Forums and blogs count as third-party, two at most.",
+    "Opens the pages and keeps only the paragraphs about OAuth, review, limits and timelines. Plain keyword matching, no model, which keeps it inside the free tier.",
+    "Pokes the real endpoints without logging in: the OpenID discovery file, and the actual login URL with a fake client ID, to see what error a developer would hit.",
+    "A small model pulls facts out of each page. Each fact has to come with a quote, and code checks that quote is really on the page.",
+    "A bigger model writes the guide using only those numbered facts. Anything it can't back up gets marked not verified.",
+    "The score comes from the fixed rules above, not from the model."
   ],
   "limitations": [
-    "Generated guides are a first draft: they're only as good as the pages search surfaces, and providers with login-walled docs produce thin guides.",
-    "The free Groq tier rate-limits tokens per model, so a live run takes about 1–3 minutes and only two runs happen at once.",
-    "DuckDuckGo search may throttle cloud servers; set TAVILY_API_KEY for reliable search, or paste the provider's docs URL instead of a name.",
-    "On Render's free plan the disk isn't persistent, so generated guides disappear on redeploy (curated guides ship in the repo).",
-    "“Tested” claims cover only the console steps a person actually tried; no app was submitted for real provider review.",
-    "Difficulty scoring is deliberately simple and transparent. Two providers with the same score can still feel different.",
-    "Generated scores can differ between runs for providers whose docs are ambiguous about whether review is optional (seen with Asana: 3/5 vs 2/5). Regenerate or check the ⚠️ items before relying on a generated score."
+    "Live guides are a good first draft, not gospel. They're only as good as what search turns up, and providers with docs behind a login come out thin.",
+    "The free Groq tier limits how fast the model can go, so a live run takes a minute or two and only two run at once.",
+    "Search runs through Tavily (free tier, roughly 200 guides a month). Without a key it falls back to DuckDuckGo, which sometimes blocks servers. You can also paste the provider's docs URL instead of the name.",
+    "Render's free plan forgets generated guides when it redeploys. The hand-checked ones live in the repo, so they always come back.",
+    "\"Tested\" only covers what I actually clicked through. I didn't submit anything for real review, so the review timelines come from docs, not experience.",
+    "The scoring is deliberately simple. Two apps that both score 4 can still feel very different, so read the line about what blocks launch.",
+    "Live scores can wobble between runs when a provider's docs are vague (Asana went 3/5, then 2/5). Regenerate, or check the not verified items, before trusting a live score."
   ]
 }

@@ -77,16 +77,16 @@ function watchJob(id) {
     } else if (ev.type === "source") {
       li("#sources", `<span class="tag ${ev.official ? "ready" : ""}">${ev.official ? "official" : "3rd-party"}</span> <a href="${esc(ev.url)}" target="_blank" rel="noopener">${esc(ev.title || ev.url)}</a>`);
     } else if (ev.type === "probe") {
-      li("#log", `🛰️ <b>Probe</b> <code>${esc(ev.url)}</code> — ${esc(ev.observed)}`);
+      li("#log", `<b>probe</b> <code>${esc(ev.url)}</code> — ${esc(ev.observed)}`);
     } else if (ev.type === "log") {
       li("#log", esc(ev.text));
     } else if (ev.type === "done") {
       const r = $("#result"); r.hidden = false;
-      r.innerHTML = `<b>Guide ready.</b> <a class="btn" href="/guides/${ev.slug}">Open the guide →</a>`;
+      r.innerHTML = `<b>Done.</b> <a class="btn" href="/guides/${ev.slug}">Open the guide →</a>`;
       setTimeout(() => (location.href = `/guides/${ev.slug}`), 1500);
     } else if (ev.type === "error") {
       const r = $("#result"); r.hidden = false; r.classList.add("err");
-      r.innerHTML = `<b>The agent stopped:</b> ${esc(ev.message)} <a href="/">Back</a>`;
+      r.innerHTML = `<b>The agent got stuck:</b> ${esc(ev.message)} <a href="/">Go back</a>`;
     } else if (ev.type === "end") {
       es.close(); clearInterval(tick);
       Object.values(steps).forEach((el) => { if (el.className === "st-running") el.className = "st-warn"; });

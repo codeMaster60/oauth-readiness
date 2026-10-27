@@ -27,7 +27,8 @@ Scope: the developer needs a MULTI-USER, user-authorized OAuth app (authorizatio
 "Allow"). Ignore server-to-server, client-credentials, service-account, internal-only or personal-token app types
 except to warn in gotchas that they don't fit this use case. Never put fact IDs (F1, P2) inside any text field;
 cite them only in "refs".
-Write for a busy developer: short sentences, no marketing. Output JSON only with exactly these keys:
+Write the way a developer explains this to a friend: plain words, short sentences, first-hand and direct. No emojis,
+no marketing words ("seamless", "robust", "leverage", "comprehensive"), no filler. Output JSON only with exactly these keys:
 
 {
  "name": str (just the provider's product name, e.g. "Asana"), "category": str (e.g. "CRM", "Email", "Dev tools"),

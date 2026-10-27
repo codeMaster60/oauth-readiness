@@ -4,7 +4,7 @@
 {% block main %}
 <article class="guide" data-slug="{{ g.slug }}">
   <div class="crumbs"><a href="/">Library</a> / {{ g.name }}
-    <span class="origin {{ g.origin }}">{{ 'Hand-checked' if g.origin == 'curated' else 'Agent-generated' }} · {{ g.updated }}</span>
+    <span class="origin {{ g.origin }}">{{ 'Checked by hand' if g.origin == 'curated' else 'Looked up live by the agent' }} · {{ g.updated }}</span>
   </div>
 
   <header class="verdict d{{ g.verdict.difficulty }}">
@@ -22,7 +22,7 @@
     <details class="why">
       <summary>Why {{ g.verdict.difficulty }}/5?</summary>
       <ul>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}</ul>
-      <p class="muted">Scores come from a fixed rubric over extracted facts, not from the model's opinion. <a href="/evidence#rubric">See the rubric.</a></p>
+      <p class="muted">The model doesn't pick this number. It pulls out facts, and a fixed set of rules turns them into a score. <a href="/evidence#rubric">Here are the rules.</a></p>
     </details>
   </header>
 
@@ -45,7 +45,7 @@
     {% if g.gotchas %}<a href="#gotchas">Gotchas</a>{% endif %}
     {% if g.blockers %}<a href="#blockers">When you hit a blocker</a>{% endif %}
     <a href="#split">Agent vs. you</a>
-    {% if g.uncertainties %}<a href="#uncertain">Not verified</a>{% endif %}
+    {% if g.uncertainties %}<a href="#uncertain">Not confirmed</a>{% endif %}
     <a href="#sources">Sources</a>
     <div class="progress"><span id="prog-n">0</span>/<span id="prog-t">0</span> steps done</div>
   </nav>
@@ -56,19 +56,20 @@
     <section id="own-app" class="box composio">
       <h2>Do you need your own OAuth app?</h2>
       <p><b>Composio-managed app: {{ g.composio.managed }}.</b> {{ g.composio.managed_note }}</p>
-      <p>Start on the managed app while you build. Bring your own when:</p>
+      <p>Use the managed one while you build. You'll want your own when:</p>
       <ul>{% for x in g.composio.when_own_app %}<li>{{ x }}</li>{% endfor %}</ul>
       <p class="callback">Callback / redirect URL to register with {{ g.name }}:
         <code>{{ g.composio.redirect_uri }}</code> <button data-copy="{{ g.composio.redirect_uri }}">Copy</button></p>
-      <p class="muted small">Composio's docs show more than one callback path (v3, v3.1, legacy v1) — if your auth config
-        displays a different one, use that. <a href="/evidence#checks">Why we flag this.</a></p>
-      <p class="muted small">Switching an existing user base from the managed app to yours means every user reconnects —
-        connections are tied to the app they were created with.</p>
+      <p class="muted small">Heads up: Composio's docs mention more than one callback path (v3, v3.1, an older v1). If your
+        auth config shows a different one, go with that. Also, opening this link directly says "failed". That's expected,
+        it only works mid-login. <a href="/evidence#checks">More on this.</a></p>
+      <p class="muted small">One thing that bites people: connections stick to the app they were made with. Move your users
+        to your own app later and every one of them has to reconnect. Easier to decide early.</p>
     </section>
 
     {% if g.paths %}
     <section id="paths">
-      <h2>Pick your path — it depends on what you need</h2>
+      <h2>Pick your path first. It changes everything below.</h2>
       <div class="paths">
         {% for p in g.paths %}
         <div class="path d{{ p.difficulty }}">
@@ -136,16 +137,16 @@
     {% endif %}
 
     <section id="split">
-      <h2>What an agent can do vs. where you take over</h2>
+      <h2>What you can hand off, and what you can't</h2>
       <div class="split">
-        <div><h3>🤖 Agent can</h3><ul>{% for x in g.agent_split.agent %}<li>{{ x }}</li>{% endfor %}</ul></div>
-        <div><h3>🧑 You must</h3><ul>{% for x in g.agent_split.you %}<li>{{ x }}</li>{% endfor %}</ul></div>
+        <div><h3>An agent can</h3><ul>{% for x in g.agent_split.agent %}<li>{{ x }}</li>{% endfor %}</ul></div>
+        <div><h3>You have to</h3><ul>{% for x in g.agent_split.you %}<li>{{ x }}</li>{% endfor %}</ul></div>
       </div>
     </section>
 
     {% if g.uncertainties %}
     <section id="uncertain" class="box warn">
-      <h2>Not verified / uncertain</h2>
+      <h2>Things I couldn't confirm</h2>
       <ul>{% for u in g.uncertainties %}<li>{{ u }}</li>{% endfor %}</ul>
     </section>
     {% endif %}
@@ -153,7 +154,7 @@
     {% if g.probes %}
     <section id="probes">
       <h2>Live probes</h2>
-      <p class="muted">Anonymous requests the agent made to {{ g.name }}'s real endpoints — no account needed.</p>
+      <p class="muted">The agent hit {{ g.name }}'s real endpoints without logging in, to see what actually happens.</p>
       {% for p in g.probes %}<div class="probe"><code>{{ p.url }}</code><p>{{ p.observed }}</p></div>{% endfor %}
     </section>
     {% endif %}

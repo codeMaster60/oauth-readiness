@@ -10,16 +10,46 @@
   "verdict": {
     "difficulty": 2,
     "label": "Easy · same day",
-    "summary": "Posting as the member is self-serve the same day. But tokens last 60 days with no refresh token unless you're an approved partner, so users must reconnect every two months. Anything involving company Pages or analytics is a separate, vetted, partner-style application with no guaranteed approval.",
+    "summary": "Posting as the user is self-serve, same day. The catch is tokens die after 60 days and you don't get refresh tokens unless you're an approved partner, so users reconnect every couple of months. Anything with company pages is a separate application, and there's no promise you'll get in.",
     "active_effort": "30–45 min",
     "wait": "None for member posting; Community Management API approval: no published time",
     "gating_step": "Company-page access (Community Management API) is vetted; member tokens expire every 60 days without partner refresh tokens"
   },
-  "flags": {"review_for_production": false, "review_wait_days_max": null, "security_assessment": false, "business_verification": true, "partner_gated": false, "paid_requirement": false, "install_cap_before_review": null, "dev_mode_user_cap": null},
+  "flags": {
+    "review_for_production": false,
+    "review_wait_days_max": null,
+    "security_assessment": false,
+    "business_verification": true,
+    "partner_gated": false,
+    "paid_requirement": false,
+    "install_cap_before_review": null,
+    "dev_mode_user_cap": null
+  },
   "concept": "A LinkedIn developer app is created in the Developer Portal and must be associated with a LinkedIn Page. API access comes from the products you add to the app. Some are self-serve (Sign In with LinkedIn, Share on LinkedIn); others require an access request and vetting. Each member who connects grants the app a token limited to the products' scopes.",
   "paths": [
-    {"name": "Sign in + post as the member", "when": "Your agent drafts and publishes posts on the user's own profile. Self-serve products: Sign In with LinkedIn using OpenID Connect plus Share on LinkedIn (w_member_social).", "difficulty": 2, "wait": "none", "evidence": "documented", "sources": ["s1", "s2"]},
-    {"name": "Manage company Pages (Community Management API)", "when": "Posting as an organization, reading page analytics or comments. Requires an access request, vetting, a verified Page, and a dedicated app.", "difficulty": 5, "wait": "unknown (no published timeline)", "evidence": "documented", "sources": ["s3", "s5", "s6"]}
+    {
+      "name": "Sign in + post as the member",
+      "when": "Your agent drafts and publishes posts on the user's own profile. Self-serve products: Sign In with LinkedIn using OpenID Connect plus Share on LinkedIn (w_member_social).",
+      "difficulty": 2,
+      "wait": "none",
+      "evidence": "documented",
+      "sources": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "name": "Manage company Pages (Community Management API)",
+      "when": "Posting as an organization, reading page analytics or comments. Requires an access request, vetting, a verified Page, and a dedicated app.",
+      "difficulty": 5,
+      "wait": "unknown (no published timeline)",
+      "evidence": "documented",
+      "sources": [
+        "s3",
+        "s5",
+        "s6"
+      ]
+    }
   ],
   "composio": {
     "managed": "yes",
@@ -39,16 +69,84 @@
       "name": "Build & test (works today)",
       "summary": "Member sign-in and posting are self-serve products you add in the portal.",
       "limits": [
-        {"text": "Share on LinkedIn: 150 requests per member per day and 100,000 per application per day (UTC).", "evidence": "documented", "sources": ["s2"]},
-        {"text": "Access tokens are valid for 60 days by default. Programmatic refresh tokens are only for approved Marketing Developer Platform partners.", "evidence": "documented", "sources": ["s4"]}
+        {
+          "text": "Share on LinkedIn: 150 requests per member per day and 100,000 per application per day (UTC).",
+          "evidence": "documented",
+          "sources": [
+            "s2"
+          ]
+        },
+        {
+          "text": "Access tokens are valid for 60 days by default. Programmatic refresh tokens are only for approved Marketing Developer Platform partners.",
+          "evidence": "documented",
+          "sources": [
+            "s4"
+          ]
+        }
       ],
       "steps": [
-        {"title": "Have (or create) a LinkedIn Page for your company", "detail": "Apps must be associated with a Page. If you're its admin, verifying the app against it is quick.", "who": "you", "minutes": 10, "evidence": "third_party", "sources": ["x1", "x2"]},
-        {"title": "Create the app in the Developer Portal", "detail": "linkedin.com/developers/apps → Create app → associate the Page, logo and privacy policy URL.", "who": "you", "minutes": 10, "evidence": "third_party", "sources": ["x2"]},
-        {"title": "Verify the app with the Page admin", "detail": "Send the verification link to a Page admin, or approve it yourself if you are one.", "who": "you", "minutes": 5, "evidence": "documented", "sources": ["s3"]},
-        {"title": "Add products: Sign In with LinkedIn (OIDC) + Share on LinkedIn", "detail": "Products tab. This grants openid, profile, email and w_member_social.", "who": "you", "minutes": 5, "evidence": "documented", "sources": ["s1", "s2"]},
-        {"title": "Add the redirect URL and create the Composio auth config", "detail": "Auth tab → Authorized redirect URLs → Composio's callback URL. Then copy the Client ID and secret into Composio.", "who": "you", "minutes": 5, "evidence": "documented", "sources": ["c2"]},
-        {"title": "Connect and post a test", "detail": "Use a private or test profile. Posts are real.", "who": "either", "minutes": 5, "evidence": "documented", "sources": ["s2"]}
+        {
+          "title": "Have (or create) a LinkedIn Page for your company",
+          "detail": "Apps must be associated with a Page. If you're its admin, verifying the app against it is quick.",
+          "who": "you",
+          "minutes": 10,
+          "evidence": "third_party",
+          "sources": [
+            "x1",
+            "x2"
+          ]
+        },
+        {
+          "title": "Create the app in the Developer Portal",
+          "detail": "linkedin.com/developers/apps → Create app → associate the Page, logo and privacy policy URL.",
+          "who": "you",
+          "minutes": 10,
+          "evidence": "third_party",
+          "sources": [
+            "x2"
+          ]
+        },
+        {
+          "title": "Verify the app with the Page admin",
+          "detail": "Send the verification link to a Page admin, or approve it yourself if you are one.",
+          "who": "you",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "s3"
+          ]
+        },
+        {
+          "title": "Add products: Sign In with LinkedIn (OIDC) + Share on LinkedIn",
+          "detail": "Products tab. This grants openid, profile, email and w_member_social.",
+          "who": "you",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "s1",
+            "s2"
+          ]
+        },
+        {
+          "title": "Add the redirect URL and create the Composio auth config",
+          "detail": "Auth tab → Authorized redirect URLs → Composio's callback URL. Then copy the Client ID and secret into Composio.",
+          "who": "you",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "c2"
+          ]
+        },
+        {
+          "title": "Connect and post a test",
+          "detail": "Use a private or test profile. Posts are real.",
+          "who": "either",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "s2"
+          ]
+        }
       ]
     },
     {
@@ -57,32 +155,158 @@
       "summary": "Member posting needs no review. Company-page features are a separate application process.",
       "limits": [],
       "steps": [
-        {"title": "Plan for 60-day re-consent", "detail": "Without partner refresh tokens, prompt users to reconnect before day 60, and handle revoked tokens by falling back to the login flow.", "who": "agent", "minutes": 30, "evidence": "documented", "sources": ["s4"]},
-        {"title": "For company Pages: create a dedicated app", "detail": "The Community Management API must be the only product on its app; the request button is greyed out if other products are attached.", "who": "you", "minutes": 15, "evidence": "documented", "sources": ["s6"]},
-        {"title": "Request Community Management API (Development tier)", "detail": "Complete the access form. LinkedIn vets both the developer and the app against its terms and supported use cases. Legal name, address, website and privacy policy should all line up.", "who": "you", "minutes": 60, "evidence": "documented", "sources": ["s5"]},
-        {"title": "Upgrade to Standard tier", "detail": "Submit the Standard-tier form, a screen recording of your app, and test credentials.", "who": "you", "minutes": 120, "evidence": "documented", "sources": ["s7"]}
+        {
+          "title": "Plan for 60-day re-consent",
+          "detail": "Without partner refresh tokens, prompt users to reconnect before day 60, and handle revoked tokens by falling back to the login flow.",
+          "who": "agent",
+          "minutes": 30,
+          "evidence": "documented",
+          "sources": [
+            "s4"
+          ]
+        },
+        {
+          "title": "For company Pages: create a dedicated app",
+          "detail": "The Community Management API must be the only product on its app; the request button is greyed out if other products are attached.",
+          "who": "you",
+          "minutes": 15,
+          "evidence": "documented",
+          "sources": [
+            "s6"
+          ]
+        },
+        {
+          "title": "Request Community Management API (Development tier)",
+          "detail": "Complete the access form. LinkedIn vets both the developer and the app against its terms and supported use cases. Legal name, address, website and privacy policy should all line up.",
+          "who": "you",
+          "minutes": 60,
+          "evidence": "documented",
+          "sources": [
+            "s5"
+          ]
+        },
+        {
+          "title": "Upgrade to Standard tier",
+          "detail": "Submit the Standard-tier form, a screen recording of your app, and test credentials.",
+          "who": "you",
+          "minutes": 120,
+          "evidence": "documented",
+          "sources": [
+            "s7"
+          ]
+        }
       ]
     }
   ],
   "requirements": [
-    {"item": "LinkedIn Page associated with the app", "when": "always", "detail": "Verified by a Page admin.", "evidence": "documented", "sources": ["s3"]},
-    {"item": "Registered business + matching details", "when": "production", "detail": "Required for Community Management API vetting.", "evidence": "third_party", "sources": ["x3"]},
-    {"item": "Screen recording + test credentials", "when": "production", "detail": "For the Community Management Standard tier.", "evidence": "documented", "sources": ["s7"]}
+    {
+      "item": "LinkedIn Page associated with the app",
+      "when": "always",
+      "detail": "Verified by a Page admin.",
+      "evidence": "documented",
+      "sources": [
+        "s3"
+      ]
+    },
+    {
+      "item": "Registered business + matching details",
+      "when": "production",
+      "detail": "Required for Community Management API vetting.",
+      "evidence": "third_party",
+      "sources": [
+        "x3"
+      ]
+    },
+    {
+      "item": "Screen recording + test credentials",
+      "when": "production",
+      "detail": "For the Community Management Standard tier.",
+      "evidence": "documented",
+      "sources": [
+        "s7"
+      ]
+    }
   ],
   "gotchas": [
-    {"title": "Users must reconnect every ~60 days", "detail": "Long-running agents silently lose LinkedIn access unless you're an approved partner with refresh tokens. Build reminders.", "severity": "high", "evidence": "documented", "sources": ["s4"]},
-    {"title": "Company-page features need a separate app", "detail": "The Community Management API can't share an app with other products, so plan two apps and two auth configs.", "severity": "high", "evidence": "documented", "sources": ["s6"]},
-    {"title": "Approval is discretionary", "detail": "Rejections often come down to how the use case is described, not your code.", "severity": "medium", "evidence": "third_party", "sources": ["x4"]},
-    {"title": "Token TTL units in LinkedIn's docs are inconsistent", "detail": "The sample responses' expires_in values don't match the stated 60 and 365 days in seconds. Read the real response before writing expiry logic.", "severity": "low", "evidence": "documented", "sources": ["s4"]}
+    {
+      "title": "Users must reconnect every ~60 days",
+      "detail": "Long-running agents silently lose LinkedIn access unless you're an approved partner with refresh tokens. Build reminders.",
+      "severity": "high",
+      "evidence": "documented",
+      "sources": [
+        "s4"
+      ]
+    },
+    {
+      "title": "Company-page features need a separate app",
+      "detail": "The Community Management API can't share an app with other products, so plan two apps and two auth configs.",
+      "severity": "high",
+      "evidence": "documented",
+      "sources": [
+        "s6"
+      ]
+    },
+    {
+      "title": "Approval is discretionary",
+      "detail": "Rejections often come down to how the use case is described, not your code.",
+      "severity": "medium",
+      "evidence": "third_party",
+      "sources": [
+        "x4"
+      ]
+    },
+    {
+      "title": "Token TTL units in LinkedIn's docs are inconsistent",
+      "detail": "The sample responses' expires_in values don't match the stated 60 and 365 days in seconds. Read the real response before writing expiry logic.",
+      "severity": "low",
+      "evidence": "documented",
+      "sources": [
+        "s4"
+      ]
+    }
   ],
   "blockers": [
-    {"symptom": "Community Management “Request access” is greyed out", "cause": "The app already has other products or pending requests.", "fix": "Create a new app on the same Page just for Community Management.", "evidence": "documented", "sources": ["s6"]},
-    {"symptom": "“Identity vetting failed” / access denied for org endpoints", "cause": "The app isn't approved for the Community Management API, or business verification failed.", "fix": "Complete the access request with consistent company details.", "evidence": "third_party", "sources": ["x5"]},
-    {"symptom": "Posts fail after two months", "cause": "The 60-day access token expired.", "fix": "Ask the user to reconnect; schedule reminders before expiry.", "evidence": "documented", "sources": ["s4"]}
+    {
+      "symptom": "Community Management “Request access” is greyed out",
+      "cause": "The app already has other products or pending requests.",
+      "fix": "Create a new app on the same Page just for Community Management.",
+      "evidence": "documented",
+      "sources": [
+        "s6"
+      ]
+    },
+    {
+      "symptom": "“Identity vetting failed” / access denied for org endpoints",
+      "cause": "The app isn't approved for the Community Management API, or business verification failed.",
+      "fix": "Complete the access request with consistent company details.",
+      "evidence": "third_party",
+      "sources": [
+        "x5"
+      ]
+    },
+    {
+      "symptom": "Posts fail after two months",
+      "cause": "The 60-day access token expired.",
+      "fix": "Ask the user to reconnect; schedule reminders before expiry.",
+      "evidence": "documented",
+      "sources": [
+        "s4"
+      ]
+    }
   ],
   "agent_split": {
-    "agent": ["Decide which products your use case actually needs", "Draft the access-request use-case description", "Write the screen-recording script", "Implement 60-day reconnect reminders"],
-    "you": ["Own or admin a LinkedIn Page and verify the app", "Create the app(s) and add products", "Submit access forms as the business", "Record the Standard-tier screencast"]
+    "agent": [
+      "Decide which products your use case actually needs",
+      "Draft the access-request use-case description",
+      "Write the screen-recording script",
+      "Implement 60-day reconnect reminders"
+    ],
+    "you": [
+      "Own or admin a LinkedIn Page and verify the app",
+      "Create the app(s) and add products",
+      "Submit access forms as the business",
+      "Record the Standard-tier screencast"
+    ]
   },
   "uncertainties": [
     "Community Management review timelines aren't published.",
@@ -90,20 +314,110 @@
   ],
   "probes": [],
   "sources": [
-    {"id": "s1", "title": "LinkedIn: Sign In with LinkedIn using OpenID Connect", "url": "https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s2", "title": "LinkedIn: Share on LinkedIn", "url": "https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s3", "title": "LinkedIn: Community Management API migration (Page verification)", "url": "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/community-management-api-migration-guide", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s4", "title": "LinkedIn: Programmatic refresh tokens", "url": "https://learn.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s5", "title": "LinkedIn: Community Management app review", "url": "https://learn.microsoft.com/en-us/linkedin/marketing/community-management-app-review", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s6", "title": "LinkedIn: API partner support guide (FAQ)", "url": "https://learn.microsoft.com/en-us/linkedin/shared/linkedin-api-partner-support-guide", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s7", "title": "LinkedIn Marketing: Quick start", "url": "https://learn.microsoft.com/en-us/linkedin/marketing/quick-start", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "x1", "title": "DEV: Post to LinkedIn from a script (2026)", "url": "https://dev.to/broke2builtai/how-to-post-to-linkedin-from-a-script-the-15-minute-oauth-walkthrough-2026-58fp", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x2", "title": "Artifism: LinkedIn API setup", "url": "https://docs.artifism.techvill.net/customer/linkedin-api-setup", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x3", "title": "LinkedIn API access & approval (agency write-up)", "url": "https://singhamandeep.com/?p=1387", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x4", "title": "bundle.social: LinkedIn API permissions", "url": "https://bundle.social/blog/linkedin-api-permissions", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x5", "title": "Microsoft Fabric Community: Connecting to LinkedIn via API", "url": "https://community.fabric.microsoft.com/t5/Desktop/Connecting-to-LinkedIn-via-API/m-p/4727044/highlight/true", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "c1", "title": "Composio: LinkedIn toolkit", "url": "https://docs.composio.dev/toolkits/linkedin", "kind": "composio", "accessed": "2026-10-27"},
-    {"id": "c2", "title": "Composio: Managed vs custom auth", "url": "https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app", "kind": "composio", "accessed": "2026-10-27"}
+    {
+      "id": "s1",
+      "title": "LinkedIn: Sign In with LinkedIn using OpenID Connect",
+      "url": "https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s2",
+      "title": "LinkedIn: Share on LinkedIn",
+      "url": "https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s3",
+      "title": "LinkedIn: Community Management API migration (Page verification)",
+      "url": "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/community-management-api-migration-guide",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s4",
+      "title": "LinkedIn: Programmatic refresh tokens",
+      "url": "https://learn.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s5",
+      "title": "LinkedIn: Community Management app review",
+      "url": "https://learn.microsoft.com/en-us/linkedin/marketing/community-management-app-review",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s6",
+      "title": "LinkedIn: API partner support guide (FAQ)",
+      "url": "https://learn.microsoft.com/en-us/linkedin/shared/linkedin-api-partner-support-guide",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s7",
+      "title": "LinkedIn Marketing: Quick start",
+      "url": "https://learn.microsoft.com/en-us/linkedin/marketing/quick-start",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x1",
+      "title": "DEV: Post to LinkedIn from a script (2026)",
+      "url": "https://dev.to/broke2builtai/how-to-post-to-linkedin-from-a-script-the-15-minute-oauth-walkthrough-2026-58fp",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x2",
+      "title": "Artifism: LinkedIn API setup",
+      "url": "https://docs.artifism.techvill.net/customer/linkedin-api-setup",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x3",
+      "title": "LinkedIn API access & approval (agency write-up)",
+      "url": "https://singhamandeep.com/?p=1387",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x4",
+      "title": "bundle.social: LinkedIn API permissions",
+      "url": "https://bundle.social/blog/linkedin-api-permissions",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x5",
+      "title": "Microsoft Fabric Community: Connecting to LinkedIn via API",
+      "url": "https://community.fabric.microsoft.com/t5/Desktop/Connecting-to-LinkedIn-via-API/m-p/4727044/highlight/true",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "c1",
+      "title": "Composio: LinkedIn toolkit",
+      "url": "https://docs.composio.dev/toolkits/linkedin",
+      "kind": "composio",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "c2",
+      "title": "Composio: Managed vs custom auth",
+      "url": "https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app",
+      "kind": "composio",
+      "accessed": "2026-10-27"
+    }
   ],
-  "stats": {"sources_read": 12, "facts_extracted": 0, "quotes_verified": 0, "probes_run": 0, "seconds": null}
+  "stats": {
+    "sources_read": 12,
+    "facts_extracted": 0,
+    "quotes_verified": 0,
+    "probes_run": 0,
+    "seconds": null
+  }
 }

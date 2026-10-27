@@ -10,7 +10,7 @@
   "verdict": {
     "difficulty": 1,
     "label": "Self-serve · minutes",
-    "summary": "No approval step: you can register an OAuth app and connect real users in about 15 minutes. The real launch risk is your users' organizations, which block OAuth apps by default until an org owner approves yours.",
+    "summary": "No review at all. I registered one in about 3 minutes and it worked straight away. What'll actually slow you down is your customers: new GitHub orgs block OAuth apps by default, so someone with owner rights has to approve yours.",
     "active_effort": "10–15 min",
     "wait": "None from GitHub (org-owner approvals happen on your customers' side)",
     "gating_step": "Customer organizations restrict OAuth apps by default; each org owner must approve your app"

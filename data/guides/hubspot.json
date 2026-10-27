@@ -10,17 +10,54 @@
   "verdict": {
     "difficulty": 4,
     "label": "Hard · weeks of waiting",
-    "summary": "Building is self-serve, but on the current developer platform an unlisted OAuth app stops at 25 installs. Growing past your first 25 customers means a Marketplace listing, which needs real installs first and a review HubSpot says should finish within 60 days of feedback.",
+    "summary": "Building is self-serve, but an unlisted app stops at 25 installs. Customer 26 just can't install it. Getting past that means a marketplace listing, which needs real installs first and a review HubSpot says should wrap up within 60 days of their feedback.",
     "active_effort": "1–2 hours (CLI project setup); 1–2 days for the listing",
     "wait": "None for your first 25 installs; listing review up to ~60 days",
     "gating_step": "The 25-install cap until your HubSpot Marketplace listing is approved"
   },
-  "flags": {"review_for_production": true, "review_wait_days_max": 60, "security_assessment": false, "business_verification": false, "partner_gated": false, "paid_requirement": false, "install_cap_before_review": 25, "dev_mode_user_cap": null},
+  "flags": {
+    "review_for_production": true,
+    "review_wait_days_max": 60,
+    "security_assessment": false,
+    "business_verification": false,
+    "partner_gated": false,
+    "paid_requirement": false,
+    "install_cap_before_review": 25,
+    "dev_mode_user_cap": null
+  },
   "concept": "On HubSpot's current developer platform (2025.2+), an app is a project you create and upload with the HubSpot CLI. Its OAuth settings (redirect URLs, scopes) live in app-hsmeta.json. Each customer portal that installs the app grants your integration a token for that portal. The app's distribution type decides how many portals can install it.",
   "paths": [
-    {"name": "Pilot (up to 25 accounts)", "when": "Early customers. Marketplace-distribution OAuth app, unlisted.", "difficulty": 2, "wait": "none", "evidence": "documented", "sources": ["s2"]},
-    {"name": "Listed on the HubSpot Marketplace", "when": "More than 25 customer portals.", "difficulty": 4, "wait": "up to ~60 days", "evidence": "documented", "sources": ["s2", "s4"]},
-    {"name": "AI connector listing", "when": "Your app mainly connects HubSpot to generative-AI tools. Extra rules: user-level permissions and built on HubSpot's MCP Server.", "difficulty": 4, "wait": "unknown", "evidence": "documented", "sources": ["s5"]}
+    {
+      "name": "Pilot (up to 25 accounts)",
+      "when": "Early customers. Marketplace-distribution OAuth app, unlisted.",
+      "difficulty": 2,
+      "wait": "none",
+      "evidence": "documented",
+      "sources": [
+        "s2"
+      ]
+    },
+    {
+      "name": "Listed on the HubSpot Marketplace",
+      "when": "More than 25 customer portals.",
+      "difficulty": 4,
+      "wait": "up to ~60 days",
+      "evidence": "documented",
+      "sources": [
+        "s2",
+        "s4"
+      ]
+    },
+    {
+      "name": "AI connector listing",
+      "when": "Your app mainly connects HubSpot to generative-AI tools. Extra rules: user-level permissions and built on HubSpot's MCP Server.",
+      "difficulty": 4,
+      "wait": "unknown",
+      "evidence": "documented",
+      "sources": [
+        "s5"
+      ]
+    }
   ],
   "composio": {
     "managed": "yes",
@@ -40,14 +77,67 @@
       "name": "Build & test (works today, up to 25 installs)",
       "summary": "Configuration is code: you edit JSON in a project and upload it with the CLI rather than clicking through a form.",
       "limits": [
-        {"text": "A Marketplace-distribution OAuth app can be installed in up to 25 accounts before it's listed (developer test accounts don't count). Enforced since September 22, 2025.", "evidence": "documented", "sources": ["s2", "s3"]}
+        {
+          "text": "A Marketplace-distribution OAuth app can be installed in up to 25 accounts before it's listed (developer test accounts don't count). Enforced since September 22, 2025.",
+          "evidence": "documented",
+          "sources": [
+            "s2",
+            "s3"
+          ]
+        }
       ],
       "steps": [
-        {"title": "Install and authenticate the HubSpot CLI", "detail": "Run `hs account auth` against your developer account. HubSpot's guide recommends CLI v7.6.0 or later.", "who": "either", "minutes": 10, "evidence": "documented", "sources": ["s1"]},
-        {"title": "Create the project: `hs project create` → App", "detail": "Choose distribution “marketplace” and authentication “OAuth”. Static-token apps can't serve other customers' portals.", "who": "either", "minutes": 5, "evidence": "documented", "sources": ["s1"]},
-        {"title": "Set redirect URLs and scopes in app-hsmeta.json", "detail": "Put Composio's callback URL in config.auth.redirectUrls. Split scopes into requiredScopes, optionalScopes and conditionallyRequiredScopes.", "who": "agent", "minutes": 15, "evidence": "documented", "sources": ["s1"]},
-        {"title": "Upload: `hs project upload`", "detail": "Then run `hs project open` → your app → Auth tab to copy the Client ID and secret into Composio.", "who": "either", "minutes": 5, "evidence": "documented", "sources": ["s1"]},
-        {"title": "Install into a developer test account", "detail": "Developer test accounts don't count toward the 25-install cap, so test there. Installing in a standard account requires a user with the right permissions, such as a super admin.", "who": "you", "minutes": 10, "evidence": "documented", "sources": ["s1", "s2"]}
+        {
+          "title": "Install and authenticate the HubSpot CLI",
+          "detail": "Run `hs account auth` against your developer account. HubSpot's guide recommends CLI v7.6.0 or later.",
+          "who": "either",
+          "minutes": 10,
+          "evidence": "documented",
+          "sources": [
+            "s1"
+          ]
+        },
+        {
+          "title": "Create the project: `hs project create` → App",
+          "detail": "Choose distribution “marketplace” and authentication “OAuth”. Static-token apps can't serve other customers' portals.",
+          "who": "either",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "s1"
+          ]
+        },
+        {
+          "title": "Set redirect URLs and scopes in app-hsmeta.json",
+          "detail": "Put Composio's callback URL in config.auth.redirectUrls. Split scopes into requiredScopes, optionalScopes and conditionallyRequiredScopes.",
+          "who": "agent",
+          "minutes": 15,
+          "evidence": "documented",
+          "sources": [
+            "s1"
+          ]
+        },
+        {
+          "title": "Upload: `hs project upload`",
+          "detail": "Then run `hs project open` → your app → Auth tab to copy the Client ID and secret into Composio.",
+          "who": "either",
+          "minutes": 5,
+          "evidence": "documented",
+          "sources": [
+            "s1"
+          ]
+        },
+        {
+          "title": "Install into a developer test account",
+          "detail": "Developer test accounts don't count toward the 25-install cap, so test there. Installing in a standard account requires a user with the right permissions, such as a super admin.",
+          "who": "you",
+          "minutes": 10,
+          "evidence": "documented",
+          "sources": [
+            "s1",
+            "s2"
+          ]
+        }
       ]
     },
     {
@@ -55,36 +145,179 @@
       "name": "Go to production (HubSpot Marketplace listing)",
       "summary": "Listing removes the cap. Treat it as a launch project, because HubSpot reviews listing quality closely.",
       "limits": [
-        {"text": "Only one app can be submitted for approval at a time; extra submissions are rejected automatically.", "evidence": "documented", "sources": ["s5"]}
+        {
+          "text": "Only one app can be submitted for approval at a time; extra submissions are rejected automatically.",
+          "evidence": "documented",
+          "sources": [
+            "s5"
+          ]
+        }
       ],
       "steps": [
-        {"title": "Get real installs first", "detail": "Submitting a listing currently needs a minimum of active installs in unaffiliated production accounts. Third-party sources cite 3, and HubSpot has changed this threshold before.", "who": "you", "minutes": null, "evidence": "third_party", "sources": ["x1"]},
-        {"title": "Make every listing URL live and accurate", "detail": "HubSpot crawls them. Pricing must match your website, and the shared-data section must match the scopes you request.", "who": "agent", "minutes": 120, "evidence": "documented", "sources": ["s4"]},
-        {"title": "If you're an AI connector, meet the extra rules", "detail": "Use user-level permissions and build on HubSpot's MCP Server.", "who": "you", "minutes": null, "evidence": "documented", "sources": ["s5"]},
-        {"title": "Submit the listing and work through feedback", "detail": "HubSpot says the review and feedback process should take no more than 60 days from when feedback is shared. After approval, the install cap is lifted.", "who": "you", "minutes": 60, "evidence": "documented", "sources": ["s4", "s2"]}
+        {
+          "title": "Get real installs first",
+          "detail": "Submitting a listing currently needs a minimum of active installs in unaffiliated production accounts. Third-party sources cite 3, and HubSpot has changed this threshold before.",
+          "who": "you",
+          "minutes": null,
+          "evidence": "third_party",
+          "sources": [
+            "x1"
+          ]
+        },
+        {
+          "title": "Make every listing URL live and accurate",
+          "detail": "HubSpot crawls them. Pricing must match your website, and the shared-data section must match the scopes you request.",
+          "who": "agent",
+          "minutes": 120,
+          "evidence": "documented",
+          "sources": [
+            "s4"
+          ]
+        },
+        {
+          "title": "If you're an AI connector, meet the extra rules",
+          "detail": "Use user-level permissions and build on HubSpot's MCP Server.",
+          "who": "you",
+          "minutes": null,
+          "evidence": "documented",
+          "sources": [
+            "s5"
+          ]
+        },
+        {
+          "title": "Submit the listing and work through feedback",
+          "detail": "HubSpot says the review and feedback process should take no more than 60 days from when feedback is shared. After approval, the install cap is lifted.",
+          "who": "you",
+          "minutes": 60,
+          "evidence": "documented",
+          "sources": [
+            "s4",
+            "s2"
+          ]
+        }
       ]
     }
   ],
   "requirements": [
-    {"item": "HubSpot developer account + CLI", "when": "always", "detail": "Apps on the current platform are created as CLI projects.", "evidence": "documented", "sources": ["s1"]},
-    {"item": "OAuth as the only auth method", "when": "listing", "detail": "Marketplace apps must be public OAuth apps.", "evidence": "third_party", "sources": ["x1"]},
-    {"item": "Live, crawlable listing URLs and matching pricing", "when": "listing", "detail": "Privacy policy, support and install links included.", "evidence": "documented", "sources": ["s4"]},
-    {"item": "User-level permissions + HubSpot MCP Server", "when": "listing", "detail": "AI connectors only.", "evidence": "documented", "sources": ["s5"]}
+    {
+      "item": "HubSpot developer account + CLI",
+      "when": "always",
+      "detail": "Apps on the current platform are created as CLI projects.",
+      "evidence": "documented",
+      "sources": [
+        "s1"
+      ]
+    },
+    {
+      "item": "OAuth as the only auth method",
+      "when": "listing",
+      "detail": "Marketplace apps must be public OAuth apps.",
+      "evidence": "third_party",
+      "sources": [
+        "x1"
+      ]
+    },
+    {
+      "item": "Live, crawlable listing URLs and matching pricing",
+      "when": "listing",
+      "detail": "Privacy policy, support and install links included.",
+      "evidence": "documented",
+      "sources": [
+        "s4"
+      ]
+    },
+    {
+      "item": "User-level permissions + HubSpot MCP Server",
+      "when": "listing",
+      "detail": "AI connectors only.",
+      "evidence": "documented",
+      "sources": [
+        "s5"
+      ]
+    }
   ],
   "gotchas": [
-    {"title": "Customer #26 can't install", "detail": "Teams have hit the cap in production with no warning in the UI. HubSpot community moderators say it isn't waived; listing approval is the way out.", "severity": "blocker", "evidence": "third_party", "sources": ["x2", "x3"]},
-    {"title": "Migrating a legacy app applies the cap", "detail": "Moving an older public app with more than 25 installs onto the new platform enforces the limit automatically.", "severity": "high", "evidence": "third_party", "sources": ["x2"]},
-    {"title": "Unlisted apps show an unverified warning", "detail": "Users connecting an unlisted app can see an “App not reviewed by HubSpot” style warning.", "severity": "medium", "evidence": "third_party", "sources": ["x4"]},
-    {"title": "Broken listing links send you back to draft", "detail": "Unreachable privacy, support or install links are a common reason listings get returned.", "severity": "medium", "evidence": "third_party", "sources": ["x3"]}
+    {
+      "title": "Customer #26 can't install",
+      "detail": "Teams have hit the cap in production with no warning in the UI. HubSpot community moderators say it isn't waived; listing approval is the way out.",
+      "severity": "blocker",
+      "evidence": "third_party",
+      "sources": [
+        "x2",
+        "x3"
+      ]
+    },
+    {
+      "title": "Migrating a legacy app applies the cap",
+      "detail": "Moving an older public app with more than 25 installs onto the new platform enforces the limit automatically.",
+      "severity": "high",
+      "evidence": "third_party",
+      "sources": [
+        "x2"
+      ]
+    },
+    {
+      "title": "Unlisted apps show an unverified warning",
+      "detail": "Users connecting an unlisted app can see an “App not reviewed by HubSpot” style warning.",
+      "severity": "medium",
+      "evidence": "third_party",
+      "sources": [
+        "x4"
+      ]
+    },
+    {
+      "title": "Broken listing links send you back to draft",
+      "detail": "Unreachable privacy, support or install links are a common reason listings get returned.",
+      "severity": "medium",
+      "evidence": "third_party",
+      "sources": [
+        "x3"
+      ]
+    }
   ],
   "blockers": [
-    {"symptom": "“App install limit” error for a new customer", "cause": "You've used the 25 pre-listing installs.", "fix": "Get the Marketplace listing approved; developer test accounts don't count, so keep testing there.", "evidence": "documented", "sources": ["s2", "s3"]},
-    {"symptom": "redirect_uri mismatch on install", "cause": "The callback URL isn't in config.auth.redirectUrls of the uploaded project.", "fix": "Add Composio's callback URL, run `hs project upload` again, and retry.", "evidence": "documented", "sources": ["s1"]},
-    {"symptom": "Listing silently back in Draft", "cause": "Usually unreachable listing URLs or incomplete fields.", "fix": "Fix links and content, then resubmit.", "evidence": "third_party", "sources": ["x3"]}
+    {
+      "symptom": "“App install limit” error for a new customer",
+      "cause": "You've used the 25 pre-listing installs.",
+      "fix": "Get the Marketplace listing approved; developer test accounts don't count, so keep testing there.",
+      "evidence": "documented",
+      "sources": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "symptom": "redirect_uri mismatch on install",
+      "cause": "The callback URL isn't in config.auth.redirectUrls of the uploaded project.",
+      "fix": "Add Composio's callback URL, run `hs project upload` again, and retry.",
+      "evidence": "documented",
+      "sources": [
+        "s1"
+      ]
+    },
+    {
+      "symptom": "Listing silently back in Draft",
+      "cause": "Usually unreachable listing URLs or incomplete fields.",
+      "fix": "Fix links and content, then resubmit.",
+      "evidence": "third_party",
+      "sources": [
+        "x3"
+      ]
+    }
   ],
   "agent_split": {
-    "agent": ["Scaffold the CLI project and write app-hsmeta.json", "Map tools to required vs optional scopes", "Draft the listing copy, shared-data table and setup docs", "Check every listing URL resolves"],
-    "you": ["Create the developer account and authenticate the CLI", "Copy secrets into Composio", "Get pilot customers installed", "Submit the listing and handle reviewer feedback"]
+    "agent": [
+      "Scaffold the CLI project and write app-hsmeta.json",
+      "Map tools to required vs optional scopes",
+      "Draft the listing copy, shared-data table and setup docs",
+      "Check every listing URL resolves"
+    ],
+    "you": [
+      "Create the developer account and authenticate the CLI",
+      "Copy secrets into Composio",
+      "Get pilot customers installed",
+      "Submit the listing and handle reviewer feedback"
+    ]
   },
   "uncertainties": [
     "The minimum active-install requirement for listing (3) comes from a partner agency's write-up; HubSpot's page should be checked at submission time.",
@@ -92,16 +325,82 @@
   ],
   "probes": [],
   "sources": [
-    {"id": "s1", "title": "HubSpot: Create an app (developer platform)", "url": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/create-an-app", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s2", "title": "HubSpot: Manage apps in HubSpot (installation limits)", "url": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/manage-apps-in-hubspot", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s3", "title": "HubSpot changelog: New marketplace distribution app install limits", "url": "https://developers.hubspot.com/changelog/new-marketplace-distribution-app-install-limits", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s4", "title": "HubSpot: App Marketplace listing requirements", "url": "https://developers.hubspot.com/docs/apps/developer-platform/list-apps/listing-your-app/app-marketplace-listing-requirements", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "s5", "title": "HubSpot: App partner program set-up", "url": "https://developers.hubspot.com/app-partners/set-up", "kind": "official", "accessed": "2026-10-27"},
-    {"id": "x1", "title": "SpotDev: Listing a SaaS product on the HubSpot App Marketplace", "url": "https://www.spotdev.co.uk/blog/how-to-list-a-saas-product-on-hubspot-app-marketplace", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x2", "title": "HubSpot Community: New marketplace distribution app install limits", "url": "https://community.hubspot.com/t/new-marketplace-distribution-app-install-limits/139886", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x3", "title": "HubSpot Community: App installs limit", "url": "https://community.hubspot.com/t/app-installs-limit/152805", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "x4", "title": "HubSpot Community: AI connector as legacy public app", "url": "https://community.hubspot.com/t/ai-connector-as-legacy-public-app-install-limitation/148177", "kind": "third_party", "accessed": "2026-10-27"},
-    {"id": "c1", "title": "Composio: HubSpot toolkit", "url": "https://docs.composio.dev/toolkits/hubspot", "kind": "composio", "accessed": "2026-10-27"}
+    {
+      "id": "s1",
+      "title": "HubSpot: Create an app (developer platform)",
+      "url": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/create-an-app",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s2",
+      "title": "HubSpot: Manage apps in HubSpot (installation limits)",
+      "url": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/manage-apps-in-hubspot",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s3",
+      "title": "HubSpot changelog: New marketplace distribution app install limits",
+      "url": "https://developers.hubspot.com/changelog/new-marketplace-distribution-app-install-limits",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s4",
+      "title": "HubSpot: App Marketplace listing requirements",
+      "url": "https://developers.hubspot.com/docs/apps/developer-platform/list-apps/listing-your-app/app-marketplace-listing-requirements",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "s5",
+      "title": "HubSpot: App partner program set-up",
+      "url": "https://developers.hubspot.com/app-partners/set-up",
+      "kind": "official",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x1",
+      "title": "SpotDev: Listing a SaaS product on the HubSpot App Marketplace",
+      "url": "https://www.spotdev.co.uk/blog/how-to-list-a-saas-product-on-hubspot-app-marketplace",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x2",
+      "title": "HubSpot Community: New marketplace distribution app install limits",
+      "url": "https://community.hubspot.com/t/new-marketplace-distribution-app-install-limits/139886",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x3",
+      "title": "HubSpot Community: App installs limit",
+      "url": "https://community.hubspot.com/t/app-installs-limit/152805",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "x4",
+      "title": "HubSpot Community: AI connector as legacy public app",
+      "url": "https://community.hubspot.com/t/ai-connector-as-legacy-public-app-install-limitation/148177",
+      "kind": "third_party",
+      "accessed": "2026-10-27"
+    },
+    {
+      "id": "c1",
+      "title": "Composio: HubSpot toolkit",
+      "url": "https://docs.composio.dev/toolkits/hubspot",
+      "kind": "composio",
+      "accessed": "2026-10-27"
+    }
   ],
-  "stats": {"sources_read": 9, "facts_extracted": 0, "quotes_verified": 0, "probes_run": 0, "seconds": null}
+  "stats": {
+    "sources_read": 9,
+    "facts_extracted": 0,
+    "quotes_verified": 0,
+    "probes_run": 0,
+    "seconds": null
+  }
 }

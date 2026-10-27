@@ -10,7 +10,7 @@
   "verdict": {
     "difficulty": 4,
     "label": "Hard · weeks of waiting",
-    "summary": "Creating the app takes minutes, and it can be installed in other workspaces right away. But commercially distributed apps outside the Slack Marketplace get throttled history APIs (1 request per minute), and getting listed takes 10 active installs plus a review of up to about 12 weeks.",
+    "summary": "Making the app is easy, and other workspaces can install it right away. The problem is what happens if you don't get listed: history APIs drop to 1 request a minute, and Slack's terms say commercial apps belong in the marketplace. Getting listed needs 10 active workspaces and up to about 12 weeks of review.",
     "active_effort": "1–2 hours to set up; 1–2 days to prepare a Marketplace submission",
     "wait": "Up to 10 business days (preliminary) plus up to 10 weeks (functional review)",
     "gating_step": "Slack Marketplace review: needed to escape the non-Marketplace rate limits and to distribute commercially under Slack's API terms"
