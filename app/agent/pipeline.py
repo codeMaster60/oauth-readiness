@@ -278,7 +278,8 @@ def wait_days(text: str) -> Optional[int]:
 
 HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
                         r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b|grant(?:s|ing)? consent|log(?:s|ging)? in as|"
-                        r"authori[sz]ation[- ]code flow|\bauth(?:orization)? flow\b", re.I)
+                        r"authori[sz]ation[- ]code flow|\bauth(?:orization)? flow\b|"
+                        r"\b(?:make|prepare|create|film|shoot|produce)\b[^.]*\bvideo\b", re.I)
 
 
 def split_work(raw: dict) -> AgentSplit:
@@ -292,8 +293,10 @@ def split_work(raw: dict) -> AgentSplit:
 HUMAN_STEP = re.compile(r"grant(?:s|ing)? consent|clicks? (?:allow|accept)|log(?:s|ging)? in as|sign(?:s|ing)? in as|"
                         r"authori[sz]ation[- ]code flow", re.I)
 NARROW_SCOPE_RE = re.compile(r"drive\.file|gmail\.send", re.I)
-NARROW_NOTE = ("That's the narrow path. To read or list the user's existing data you need a restricted scope "
-               "(drive.readonly or gmail.readonly), see 'Pick your path'.")
+def narrow_note(name: str) -> str:
+    scope = "gmail.readonly" if "gmail" in name.lower() or "mail" in name.lower() else "drive.readonly"
+    return (f"That's the narrow path. To read or list the user's existing data you need a restricted scope "
+            f"({scope}), see 'Pick your path'.")
 CONDITIONAL_SCOPE = re.compile(r"\bif (?:you )?(?:ever |later |also |then )?(?:request|add|use|need|switch to|move to)\w*"
                                r"(?: a| any| the| more)? (?:sensitive|restricted|broader)", re.I)
 STALE_CAP = re.compile(r"no (?:further|more|other) (?:user )?(?:caps?|limits?)|any (?:google )?user can (?:now )?"
@@ -315,7 +318,8 @@ def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
             return "casa"
         if re.search(r"\bwait\b", x.title, re.I):
             return "wait"
-        if re.search(r"\bsubmit\b|verification request|request verification", x.title, re.I):
+        if re.search(r"\bsubmit\b|verification request|request verification", x.title, re.I) or (
+                re.search(r"verif|review", x.title, re.I) and re.match(r"\s*submit\b", x.detail or "", re.I)):
             return "submit"
         if re.search(r"brand|logo|privacy|website|domain|demo|video|justif|asset", x.title, re.I):
             return "prep"  # review material always comes before submitting, wherever the model put it
@@ -327,7 +331,15 @@ def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
     of = lambda k: [x for x, kk in zip(steps, kinds) if kk == k]  # noqa: E731
     prep = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "prep" or (k == "other" and i < first)]
     tail = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "other" and i >= first]
-    submit = of("submit") or [Step(
+    submit = of("submit")
+    if len(submit) > 1:  # "Complete OAuth verification: Submit..." and "Submit for review" are one step
+        keep = submit[0]
+        for x in submit[1:]:
+            if x.detail and x.detail not in keep.detail:
+                keep.detail = f"{keep.detail.rstrip()} {x.detail}".strip()
+            keep.sources = list(dict.fromkeys(keep.sources + x.sources))
+        submit = [keep]
+    submit = submit or [Step(
         title="Submit for restricted-scope verification", who="you", minutes=20,
         detail="In Google Cloud, open Google Auth Platform, then Verification Center, and submit. Have the scope "
                "justification, a demo video of the consent flow and a privacy policy on your verified domain ready.",
@@ -565,6 +577,9 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         for gx in draft.get("gotchas") or []:
             if isinstance(gx, dict):
                 gx["detail"] = fix(gx.get("detail", ""))
+        if isinstance(draft.get("uncertainties"), list):
+            draft["uncertainties"] = [fix(str(u)) if re.search(r"review|verif|approv|wait|duration|time", str(u), re.I)
+                                      else u for u in draft["uncertainties"]]
     casa_sid = next((page_sid[f["url"]] for f in facts
                      if f.get("known") and f["url"] in page_sid and SECURITY_RE.search(f["claim"])), None)
     if restricted:
@@ -605,7 +620,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         # would walk someone down the no-audit path for a use case that can't work on it.
         for x in [*(x for st in stages for x in st.steps), *requirements, *gotchas]:
             if NARROW_SCOPE_RE.search(x.detail or "") and not RESTRICTED_SCOPE_RE.search(x.detail or ""):
-                x.detail = (x.detail or "").rstrip(" .") + ". " + NARROW_NOTE
+                x.detail = (x.detail or "").rstrip(" .") + ". " + narrow_note(name)
         # "If you ever request a restricted scope..." reads as optional when this use case needs one.
         gotchas = [x for x in gotchas if not CONDITIONAL_SCOPE.search(f"{x.title} {x.detail}")]
         uncertainties = [u for u in uncertainties if not CONDITIONAL_SCOPE.search(u)

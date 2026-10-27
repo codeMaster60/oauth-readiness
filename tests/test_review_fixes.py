@@ -323,7 +323,7 @@ def _drive_pages():
 
 
 def test_restricted_launch_runs_submit_casa_wait_publish():
-    from app.agent.pipeline import NARROW_NOTE
+    from app.agent.pipeline import narrow_note
     draft = {"use_case": "read and list files", "flags": {"review_for_production": True}, "verdict": {},
              "stages": [
                  {"id": "build", "steps": [{"title": "Configure consent screen",
@@ -344,7 +344,7 @@ def test_restricted_launch_runs_submit_casa_wait_publish():
                       "Wait for Google's review", "Switch to Production"]
     assert not any("no further caps" in x.detail.lower() for st in g.stages for x in st.steps)
     build = next(st for st in g.stages if st.id == "build")
-    assert NARROW_NOTE in next(x for x in build.steps if x.title == "Configure consent screen").detail
+    assert narrow_note("Google Drive") in next(x for x in build.steps if x.title == "Configure consent screen").detail
     assert not g.gotchas and not any("later add restricted" in u for u in g.uncertainties)
 
 
@@ -422,3 +422,20 @@ def test_client_ip_skips_render_internal_hops():
         def __init__(self, h): self.headers, self.client = h, None
     assert main._client_ip(Req({"x-forwarded-for": "3.3.3.3, 117.213.200.3, 172.69.123.153, 10.199.143.70"})) == "172.69.123.153"
     assert main._client_ip(Req({"true-client-ip": "117.213.200.3", "x-forwarded-for": "3.3.3.3"})) == "117.213.200.3"
+
+
+def test_duplicate_submit_steps_merge_and_videos_are_people_work():
+    draft = {"use_case": "read and list files", "flags": {"review_for_production": True}, "verdict": {},
+             "uncertainties": ["Exact review duration beyond 72 hours"],
+             "agent_split": {"agent": ["prepare demo video", "prepare demo script"]},
+             "stages": [{"id": "build", "steps": []}, {"id": "launch", "steps": [
+                 {"title": "Complete OAuth verification", "detail": "Submit the app with a privacy policy.", "refs": []},
+                 {"title": "Submit for review", "detail": "Use the console to submit.", "refs": []}]}]}
+    g = build_guide("Google Drive", "", draft, _known_google(), [], _drive_pages(), ("yes", "", None), "m", Stats())
+    titles = [x.title for x in next(st for st in g.stages if st.id == "launch").steps]
+    assert titles[:3] == ["Complete OAuth verification", "Complete the CASA security assessment", "Wait for Google's review"]
+    assert g.agent_split.agent == ["prepare demo script"]
+    sheets = {"flags": {"review_for_production": True}, "verdict": {},
+              "uncertainties": ["Exact review duration beyond 72 hours"]}
+    gs = build_guide("Google Sheets", "", sheets, _known_google()[:1], [], [], ("yes", "", None), "m", Stats())
+    assert not any("72 hours" in u for u in gs.uncertainties)
