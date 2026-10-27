@@ -424,6 +424,35 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     sources.append(Source(id="c2", title="Composio: managed vs custom auth",
                           url="https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app",
                           kind="composio"))
+    # Durations elsewhere in the guide must agree with the headline (models drift: "24-72 hours" under a weeks-long
+    # review). Rewrite any review/wait step or gotcha whose own duration is way off.
+    target = flags.review_wait_days_max
+    if target:
+        short = "several weeks" if restricted else ("about a week" if target <= 10 else f"about {target} days")
+        dur = re.compile(r"\b\d+\s*(?:[-–]|to)\s*\d+\s*(?:business\s+)?(?:hours?|days?|weeks?)|\b\d+\s*(?:business\s+)?(?:hours?|days?|weeks?)", re.I)
+
+        def fix(text):
+            if not text:
+                return text
+            days = wait_days(text) or (1 if re.search(r"\d+\s*(?:[-–]|to)?\s*\d*\s*hours?", text, re.I) else None)
+            if days and (days * 2 < target or days > target * 2) and re.search(r"review|verif|approv|wait", text, re.I):
+                return dur.sub(short, text, count=1)
+            return text
+        for st in stages:
+            for x in st.steps:
+                if re.search(r"wait|review|verif", x.title, re.I):
+                    x.detail = fix(x.detail)
+        for gx in draft.get("gotchas") or []:
+            if isinstance(gx, dict):
+                gx["detail"] = fix(gx.get("detail", ""))
+    if restricted:
+        vt["gating_step"] = "Restricted-scope verification plus the yearly CASA security assessment"
+    # Google: "Internal" only works inside a Workspace org (seen first-hand: greyed out on a personal account).
+    if is_google:
+        for st in stages:
+            for x in st.steps:
+                if re.search(r"\binternal\b", x.detail or "", re.I) and "Workspace" not in (x.detail or ""):
+                    x.detail += " (Internal only works if every user is in your own Google Workspace org; otherwise pick External.)"
     extra_paths = []
     if restricted and not draft.get("paths"):
         casa = [page_sid[f["url"]] for f in facts if f.get("known") and SECURITY_RE.search(f["claim"])]

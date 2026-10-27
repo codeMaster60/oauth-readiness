@@ -261,3 +261,19 @@ def test_source_ids_are_contiguous():
     g = build_guide("A", "", draft, facts, [], pages, ("yes", "", None), "m", Stats())
     page_ids = [s.id for s in g.sources if s.id.startswith("s")]
     assert page_ids == ["s1", "s2"] and g.gotchas[0].sources == ["s1", "s2"]
+
+
+def test_durations_inside_the_guide_agree_with_the_headline():
+    from app.agent.web import Page
+    pages = [Page(url=f["url"], title="t", text="q", official=True) for f in _known_google()]
+    draft = {"use_case": "read and list files", "flags": {"review_for_production": True}, "verdict": {},
+             "stages": [{"id": "build", "steps": [
+                 {"title": "Configure consent screen", "detail": "Mark the app as Internal for testing.", "refs": []}]},
+                 {"id": "launch", "steps": [
+                 {"title": "Wait for verification", "detail": "Google reviews the request (24-72 hours).", "refs": []}]}]}
+    g = build_guide("Google Drive", "", draft, _known_google(), [], pages, ("yes", "", None), "m", Stats())
+    launch = next(st for st in g.stages if st.id == "launch")
+    assert "72 hours" not in launch.steps[0].detail and "several weeks" in launch.steps[0].detail
+    assert "CASA" in g.verdict.gating_step
+    build = next(st for st in g.stages if st.id == "build")
+    assert any("Workspace org" in x.detail for x in build.steps)

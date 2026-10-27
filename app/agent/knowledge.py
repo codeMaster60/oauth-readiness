@@ -30,6 +30,11 @@ KNOWN: dict[str, dict] = {
             ("dev_limits", "In Testing mode the app is limited to 100 test users.",
              "Projects configured with a publishing status of Testing are limited to up to 100 test users",
              "https://support.google.com/cloud/answer/15549945"),
+            ("create_app", "The Internal user type only works if every user is in your own Google Workspace organization; "
+             "with a personal account (no organization) it is greyed out and External is the only choice.",
+             "Projects associated with a Google Cloud Organization can configure Internal users to limit authorization "
+             "requests to members of the organization.",
+             "https://support.google.com/cloud/answer/15549945"),
             ("dev_limits", "In Testing mode, test users' authorizations and refresh tokens expire after 7 days.",
              "Authorizations by a test user will expire seven days from the time of consent.",
              "https://support.google.com/cloud/answer/15549945"),
