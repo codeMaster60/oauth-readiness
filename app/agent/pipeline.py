@@ -517,6 +517,10 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         for x in coll:
             x.sources = [remap.get(sid, sid) for sid in x.sources]
     uncertainties = [str(u) for u in draft.get("uncertainties") or [] if not JUNK_UNCERTAIN.search(str(u))]
+    if restricted:  # leftovers from the narrow-path reading ("may vary beyond the 3-5 day estimate")
+        uncertainties = [u for u in uncertainties if not re.search(r"\b3\s*[-\u2010-\u2015]\s*5\b", u)]
+        for r in requirements:
+            r.detail = re.sub(r"\bsensitive (Drive |Gmail )?scope", "restricted scope", r.detail or "", flags=re.I)
     uncertainties += extra_uncertain
     return Guide(
         # The name comes from the user's input, never the model (it once echoed prompt wording into the title).

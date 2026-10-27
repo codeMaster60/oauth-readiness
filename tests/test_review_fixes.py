@@ -285,6 +285,9 @@ def test_restricted_guide_does_not_sell_the_narrow_path_as_the_answer():
     pages = [Page(url=f["url"], title="t", text="q", official=True) for f in _known_google()]
     draft = {"use_case": "read and write files", "flags": {"review_for_production": True},
              "verdict": {"summary": "You must pass verification for the drive.file scope."},
+             "uncertainties": ["Exact verification time may vary beyond the 3\u20115 day estimate"],
+             "requirements": [{"item": "OAuth verification", "detail": "Required because the app uses a sensitive Drive scope",
+                               "refs": []}],
              "stages": [{"id": "build", "steps": [
                  {"title": "Declare scopes", "detail": "Request the drive.file scope.", "refs": []}]},
                  {"id": "launch", "steps": [
@@ -297,6 +300,8 @@ def test_restricted_guide_does_not_sell_the_narrow_path_as_the_answer():
     titles = [x.title for x in launch.steps]
     assert titles.index("Complete the CASA security assessment") < titles.index("Wait for verification outcome")
     assert all("hours" not in x.detail and "24" not in x.detail for x in launch.steps)
+    assert not any("3" in u and "5 day" in u for u in g.uncertainties)
+    assert "restricted scope" in g.requirements[0].detail
     casa = next(x for x in launch.steps if "CASA" in x.title)
     assert casa.sources and casa.sources[0] in {s.id for s in g.sources}
 
