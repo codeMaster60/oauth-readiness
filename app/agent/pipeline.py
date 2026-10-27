@@ -824,7 +824,8 @@ async def _run(job: Job, llm: Groq, save) -> None:
         out = [{"topic": f.get("topic", "gotcha"), "claim": str(f["claim"])[:300],
                 "quote": str(f.get("quote", ""))[:300], "url": p.url, "official": p.official,
                 "verified": ok, "known": False} for f, ok in zip(raw, oks)]
-        await job.emit("log", text=f"{len(out)} facts from {p.title[:60]} ({sum(x['verified'] for x in out)} quotes verified)")
+        if not job.done:  # a sibling call may have already ended the run (out of quota)
+            await job.emit("log", text=f"{len(out)} facts from {p.title[:60]} ({sum(x['verified'] for x in out)} quotes verified)")
         return out
 
     sem = asyncio.Semaphore(3)
