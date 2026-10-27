@@ -17,10 +17,17 @@
     },
     {
       "app": "Slack",
-      "status": "pending",
-      "what": "Create an app from scratch, add the redirect URL, open Manage Distribution.",
+      "status": "done",
+      "what": "Created a fresh free workspace and a Blank app, added the redirect URL, activated public distribution, 2026-10-27.",
       "observed": [
-        "Not yet run."
+        "“Create New App” now opens a dialog with templates (“AI agent”, “Starter app”) and “Blank app” / “From a manifest”. The “From scratch” option named in most guides is gone.",
+        "Blank app runs a 4-step wizard (details → scopes → events → review) ending in “Create and Install”, which installs into the dev workspace immediately.",
+        "Redirect URLs accepted both the Composio https URL and a test http://example.com/callback without error. We deleted the http one.",
+        "The OAuth & Permissions page shows the live Bot User OAuth Token in plain text, plus new options: token rotation (requires a redirect URL first), PKCE opt-in, and Enterprise-Managed Authorization. We revoked the token after the screenshot exposed it.",
+        "Manage Distribution checklist: Enable Features & Functionality ✓, Add OAuth Redirect URLs ✓, Use HTTPS For Your Features ✓ (all automatic), and Remove Hard Coded Information (manual confirmation).",
+        "“Activate Public Distribution” took effect instantly, with no review. The page then showed a shareable install URL and an Installation Count: 0 active workspaces in the past 28 days, updated every 24 hours.",
+        "Left menu: “Submit to Slack Marketplace” has 5 parts: App Listing, Review scopes, Security and compliance, Testing information, Automated checks.",
+        "Total time including creating the workspace: about 15 minutes."
       ]
     },
     {
@@ -46,6 +53,18 @@
         {
           "title": "GitHub Docs: Creating an OAuth app",
           "url": "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app"
+        }
+      ]
+    },
+    {
+      "app": "Slack",
+      "claim": "Create the app with “Create New App → From scratch”.",
+      "result": "corrected",
+      "finding": "Found by trying it: the option is now “Blank app”, below new “AI agent” and “Starter app” templates, followed by a 4-step wizard that also installs the app. The guide uses the current wording.",
+      "sources": [
+        {
+          "title": "Setup attempt (this project)",
+          "url": "/evidence#attempts"
         }
       ]
     },
