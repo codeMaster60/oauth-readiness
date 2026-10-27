@@ -13,7 +13,7 @@ Every claim is tagged with how we know it: ✅ tested · 🛰️ probed live · 
 
 If the app isn't in the library, an agent researches it **live** (about 1–3 min) and you watch it work: searching, reading the official docs, probing the provider's real endpoints, and writing a guide with the same structure. Every guide has a shareable link, plus Markdown and JSON versions so a developer's own coding agent can consume it.
 
-- **Live:** `<your Render URL>`
+- **Live:** https://oauth-readiness.onrender.com (free Render plan: the first load after idle can take ~50s to wake up)
 - **Evidence & method:** `/evidence` lists the setup attempts, claims checked against sources, what we corrected, and what we couldn't verify.
 
 ---
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 cp .env.example .env            # add GROQ_API_KEY (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 17 tests, no network needed
+pytest -q                       # 20 tests, no network needed
 ```
 
 Without `GROQ_API_KEY`, the curated library works and live generation reports that it's off.
