@@ -279,26 +279,32 @@ def wait_days(text: str) -> Optional[int]:
 HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
                         r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b|grant(?:s|ing)? consent|log(?:s|ging)? in as|"
                         r"authori[sz]ation[-\u2010-\u2015 ]code flow|\bauth(?:orization)? flow\b|"
-                        r"\b(?:make|prepare|create|film|shoot|produce)\b[^.]*\bvideo\b", re.I)
+                        r"\b(?:make|prepare|create|film|shoot|produce)\b(?![^.]*\b(?:script|draft|outline|storyboard)\b)[^.]*\bvideo\b",
+                        re.I)
 
 
-def split_work(raw: dict) -> AgentSplit:
-    """An agent can draft a demo script; it can't record the video or click submit. Move those to 'you'."""
+def split_work(raw: dict, flags: Optional[Flags] = None) -> AgentSplit:
+    """An agent can draft a demo script; it can't record the video or click submit. Move those to 'you'.
+    And drop 'pay' when nothing in the guide costs money (it's the prompt's example, not advice)."""
     agent = [str(v) for v in raw.get("agent", [])]
     you = [str(v) for v in raw.get("you", [])]
+    if flags is not None and not flags.paid_requirement:
+        you = [v for v in you if not re.match(r"\s*pay\b", v, re.I)]
     moved = [a for a in agent if HUMAN_ONLY.search(a)]
     return AgentSplit(agent=[a for a in agent if a not in moved], you=you + [m for m in moved if m not in you])
 
 
 HUMAN_STEP = re.compile(r"grant(?:s|ing)? consent|clicks? (?:allow|accept)|log(?:s|ging)? in as|sign(?:s|ing)? in as|"
                         r"authori[sz]ation[-\u2010-\u2015 ]code flow|\b(?:run|test)\b[^.]*\bauth(?:orization)? flow\b", re.I)
+LOGINISH = re.compile(r"\btest|log ?in|sign[- ]?in|authori[sz]|consent|\bflow\b|redirect|callback|endpoint|token|pkce",
+                      re.I)
 NARROW_SCOPE_RE = re.compile(r"drive\.file|gmail\.send", re.I)
 def narrow_note(name: str) -> str:
     scope = "gmail.readonly" if "gmail" in name.lower() or "mail" in name.lower() else "drive.readonly"
     return (f"That's the narrow path. To read or list the user's existing data you need a restricted scope "
             f"({scope}), see 'Pick your path'.")
 CONDITIONAL_SCOPE = re.compile(r"\bif (?:you )?(?:ever |later |also |then )?(?:request|add|use|need|switch to|move to)\w*"
-                               r"(?: a| any| the| more)? (?:sensitive|restricted|broader)", re.I)
+                               r"(?: a| any| the| more)? (?:sensitive|restricted|broader|full|wider)", re.I)
 STALE_CAP = re.compile(r"no (?:further|more|other) (?:user )?(?:caps?|limits?)|any (?:google )?user can (?:now )?"
                        r"(?:authori[sz]e|sign in|connect|use)|remove (?:the )?test[- ]user (?:limit|cap)", re.I)
 
@@ -435,8 +441,12 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
             if not isinstance(x, dict):
                 continue
             data = {k: x.get(k) for k in keys if x.get(k) is not None}
+            refs = x.get("refs") or []
+            if cls in (Step, Requirement) and not LOGINISH.search(" ".join(str(v) for v in data.values())):
+                # The probes only hit the login endpoints. "Create OAuth client" isn't backed by them.
+                refs = [r for r in refs if not str(r).strip().upper().startswith("P")]
             try:
-                out.append(cls(**data, **backing(x.get("refs"))))
+                out.append(cls(**data, **backing(refs)))
             except Exception:
                 continue
         return out
@@ -633,6 +643,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
                          and not re.search(r"\b3\s*[-\u2010-\u2015]\s*5\b", u)]
         for r in requirements:
             r.detail = re.sub(r"\bsensitive (Drive |Gmail )?scope", "restricted scope", r.detail or "", flags=re.I)
+            r.item = re.sub(r"\bsensitive (Drive |Gmail )?scope", "Restricted scope", r.item or "", flags=re.I)
     ensure_launch_stage(stages, name, flags, vt.get("wait") or "")
     # A stage the model returned with no steps renders as an empty heading; drop it.
     stages = [st for st in stages if st.steps]
@@ -675,7 +686,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         requirements=requirements,
         gotchas=gotchas,
         blockers=blockers,
-        agent_split=split_work(draft.get("agent_split") or {}),
+        agent_split=split_work(draft.get("agent_split") or {}, flags),
         uncertainties=uncertainties,
         probes=probe_list,
         sources=sources,
@@ -802,7 +813,9 @@ async def _run(job: Job, llm: Groq, save) -> None:
         try:
             data, model = await llm.json_call(EXTRACT_SYSTEM, user, pool="extract", max_tokens=1100, notify=notify)
         except LLMError as e:
-            await job.emit("log", text=f"Skipped {p.url}: {e}")
+            if str(e) == "daily":
+                raise  # out of quota for today: end the whole run now, don't build a guide from scraps
+            await job.emit("log", text=f"Skipped {p.url}: the model couldn't read it ({friendly_error(e)})")
             return []
         models_used.add(model)
         raw = [f for f in (data.get("facts") or [])[:10] if isinstance(f, dict) and f.get("claim")]
@@ -822,6 +835,12 @@ async def _run(job: Job, llm: Groq, save) -> None:
 
     for chunk in await asyncio.gather(*(guarded(p) for p in pages)):
         facts.extend(chunk)
+    # Only facts read off this app's own pages count as research. The hand-checked provider facts added below are
+    # generic (they're the same for every Google product), so a guide built on them alone would be a fake.
+    page_facts = [f for f in facts if f["verified"]]
+    if len(page_facts) < 2:
+        raise RuntimeError("I couldn't pull enough checkable facts from this app's docs to write an honest guide. "
+                           "Try pasting the provider's OAuth docs URL instead of the name.")
     kp = known_pages(official, name)
     if kp:
         for p in kp:
@@ -837,8 +856,6 @@ async def _run(job: Job, llm: Groq, save) -> None:
         f["id"] = f"F{i}"
     stats.facts_extracted = len(facts)
     stats.quotes_verified = sum(f["verified"] for f in facts)
-    if not facts:
-        raise RuntimeError("The pages didn't contain usable OAuth facts. Try pasting the provider's OAuth docs URL.")
     await job.emit("step", id="extract", status="done",
                    label=f"{len(facts)} facts · {stats.quotes_verified} quotes verified word-for-word on the source page")
 

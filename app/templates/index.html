@@ -13,7 +13,7 @@
     <button type="submit" id="go">Get the guide →</button>
   </form>
   <p class="hint" id="lookup-msg">
-    {% if live %}The live agent is on.{% else %}<b>The live agent is off on this server</b> (no GROQ_API_KEY). The hand-checked guides still work.{% endif %}
+    {% if live and out_of_quota %}<b>The live agent is out of free model quota for today.</b> The hand-checked guides still work, and live lookups come back once it resets.{% elif live %}The live agent is on.{% else %}<b>The live agent is off on this server</b> (no GROQ_API_KEY). The hand-checked guides still work.{% endif %}
     Try <a href="#" data-try="Gmail">Gmail</a>, <a href="#" data-try="Zoom">Zoom</a>,
     <a href="#" data-try="Asana">Asana</a>, <a href="#" data-try="dropbox.com">dropbox.com</a>.
   </p>

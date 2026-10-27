@@ -61,7 +61,7 @@ def home(request: Request):
     featured = sorted(store.curated.values(), key=lambda g: g.verdict.difficulty)
     return templates.TemplateResponse(request, "index.html", {
         "featured": featured, "catalog": catalog_rows(), "generated": store.generated()[:12],
-        "live": llm.configured})
+        "live": llm.configured, "out_of_quota": llm.out_of_quota})
 
 
 @app.get("/guides/{slug}", response_class=HTMLResponse)
@@ -169,6 +169,8 @@ async def generate(req: GenReq, request: Request):
         g = store.find(q)
         if g:
             return {"existing": f"/guides/{g.slug}"}
+    if llm.out_of_quota:  # every run would fail; say so now instead of after ten minutes
+        raise HTTPException(503, pipeline.friendly_error(pipeline.LLMError("daily")))
     choices = pipeline.umbrella_choices(q)
     if choices:  # "Google" is five different review paths; ask instead of guessing
         return {"choose": choices}
@@ -225,5 +227,5 @@ def robots():
 
 @app.get("/healthz")
 def health():
-    return {"ok": True, "live_generation": llm.configured, "curated": len(store.curated),
+    return {"ok": True, "live_generation": llm.configured, "out_of_quota": llm.out_of_quota, "curated": len(store.curated),
             "search": "tavily" if os.getenv("TAVILY_API_KEY") else "duckduckgo"}

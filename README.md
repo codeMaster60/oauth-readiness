@@ -83,7 +83,7 @@ pip install -r requirements.txt
 cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 56 tests, no network needed
+pytest -q                       # 60 tests, no network needed
 ```
 
 No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.
@@ -98,7 +98,7 @@ No Groq key? The six hand-checked guides still work, and the live agent just tel
 
 - Live guides are a good first draft, not gospel. They're only as good as what search turns up, and docs behind a login come out thin.
 - Free-tier models are slow-ish, so a live run is a minute or two and only two run at once. A third person sees "waiting for a free slot" instead of a blank page.
-- Groq's free tier also has a daily token cap. I hit it myself after a day of testing (around 15 live runs). When that happens the site says so straight away instead of making you wait. The hand-checked guides don't need the model at all.
+- Groq's free tier also has a daily token cap. I hit it myself after a day of testing (around 15 live runs). When that happens the run stops with a plain "out of quota for today" message, the homepage says so, and new lookups get turned away right away instead of failing ten minutes later. It never publishes a guide it couldn't actually research. The hand-checked guides don't need the model at all.
 - To keep the free quota alive, each visitor gets 5 live runs per 10 minutes and the site caps at 80 a day. I checked on the live deploy that you can't fake your IP to get around it: Render's edge overwrites a forged `True-Client-IP` and refuses a forged `CF-Connecting-IP`.
 - Live scores can wobble between runs when a provider's docs are vague. Asana went 3/5, then 2/5. It's written up on `/evidence` rather than hidden.
 - Render's free plan forgets generated guides on redeploy. The hand-checked ones live in the repo.

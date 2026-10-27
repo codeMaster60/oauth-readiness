@@ -476,3 +476,86 @@ def test_daily_cap_fails_fast_with_an_honest_message(monkeypatch):
     except L.LLMError as e:
         assert str(e) == "daily" and len(calls) == len(g.synth_pool.models)
         assert "quota is used up" in friendly_error(e)
+
+
+# ---- fourth review ----------------------------------------------------------------------------------------------
+
+def _fake_run(monkeypatch, llm):
+    from app.agent.web import Page
+    from app.models import Probe
+
+    async def fake_search(q, n=6):
+        return [{"url": "https://developers.google.com/drive/a", "title": "Drive OAuth"}]
+
+    async def fake_fetch(url, client):
+        return Page(url=url, title="Drive docs", text="OAuth app review scopes redirect URI client ID " * 20)
+
+    async def fake_composio(name, client):
+        return "unknown", "x", None
+
+    async def fake_discovery(domains, client, primary=""):
+        return [Probe(url="https://accounts.google.com/.well-known/openid-configuration", status=200,
+                      observed="live")], {}
+    monkeypatch.setattr(pipeline, "search", fake_search)
+    monkeypatch.setattr(pipeline, "fetch", fake_fetch)
+    monkeypatch.setattr(pipeline, "composio_status", fake_composio)
+    monkeypatch.setattr(pipeline.probes, "discovery", fake_discovery)
+    saved = []
+    job = pipeline.new_job("Google Drive")
+    asyncio.run(pipeline.run(job, llm, saved.append))
+    return job, saved
+
+
+def test_daily_cap_ends_the_run_and_publishes_nothing(monkeypatch):
+    from app.agent.llm import LLMError
+
+    class OutOfQuota:
+        configured = True
+        async def json_call(self, *a, **k):
+            raise LLMError("daily")
+    job, saved = _fake_run(monkeypatch, OutOfQuota())
+    err = next(e for e in job.events if e["type"] == "error")
+    assert not saved and "quota" in err["message"]
+    assert not any("daily" == e.get("text", "").split(": ")[-1] for e in job.events)
+
+
+def test_hand_checked_facts_alone_never_make_a_guide(monkeypatch):
+    class NothingOnPage:
+        configured = True
+        async def json_call(self, system, user, *, pool="extract", **k):
+            return ({"facts": []}, "m") if pool == "extract" else ({}, "m")
+    job, saved = _fake_run(monkeypatch, NothingOnPage())
+    assert not saved and "checkable facts" in job.error
+
+
+def test_generate_says_out_of_quota_up_front(monkeypatch):
+    import time as _t
+    from app import main
+    c = TestClient(main.app)
+    monkeypatch.setattr(main.llm, "daily_until", _t.time() + 600)
+    monkeypatch.setattr(main.llm, "api_key", "k")
+    r = c.post("/api/generate", json={"query": "Some New App"})
+    assert r.status_code == 503 and "quota" in r.json()["detail"]
+    assert "out of free model quota" in c.get("/").text
+
+
+def test_small_fixes_from_fourth_review():
+    from app.agent.pipeline import HUMAN_ONLY
+    assert not HUMAN_ONLY.search("prepare demo video script")
+    assert HUMAN_ONLY.search("prepare demo video")
+    draft = {"use_case": "read and list files", "flags": {"review_for_production": True}, "verdict": {},
+             "requirements": [{"item": "Sensitive scope verification", "detail": "x", "refs": []}],
+             "gotchas": [{"title": "Full access", "detail": "If you request full Drive access, you must go through "
+                          "verification.", "severity": "medium", "refs": []}],
+             "agent_split": {"you": ["sign up", "pay", "click submit"]},
+             "stages": [{"id": "build", "steps": [
+                 {"title": "Create OAuth client", "detail": "In the console.", "refs": ["P1"]},
+                 {"title": "Test the login", "detail": "Sign in as a test user.", "refs": ["P1"]}]}]}
+    from app.models import Probe
+    probe = [Probe(url="https://accounts.google.com/o/oauth2/v2/auth", status=302, observed="redirects")]
+    g = build_guide("Google Drive", "", draft, _known_google(), probe, _drive_pages(), ("yes", "", None), "m", Stats())
+    assert g.requirements[0].item.startswith("Restricted scope")
+    assert not g.gotchas
+    assert "pay" not in g.agent_split.you
+    build = {x.title: x for x in next(st for st in g.stages if st.id == "build").steps}
+    assert build["Create OAuth client"].evidence != "probed" and build["Test the login"].evidence == "probed"

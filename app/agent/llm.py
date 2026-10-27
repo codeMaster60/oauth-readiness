@@ -108,10 +108,16 @@ class Groq:
         shared = {**self.extract_pool.usage, **self.synth_pool.usage}
         self.extract_pool.usage = self.synth_pool.usage = {m: shared.get(m, deque()) for m in shared}
         self.client = httpx.AsyncClient(timeout=90)
+        self.daily_until = 0.0  # set when every model in a pool is past its per-day cap
 
     @property
     def configured(self) -> bool:
         return bool(self.api_key)
+
+    @property
+    def out_of_quota(self) -> bool:
+        """True while the free tier's daily cap is known to be hit, so the site can say so up front."""
+        return time.time() < self.daily_until
 
     async def json_call(
         self,
@@ -124,6 +130,8 @@ class Groq:
     ) -> tuple[dict, str]:
         if not self.api_key:
             raise LLMError("GROQ_API_KEY is not set")
+        if self.out_of_quota:
+            raise LLMError("daily")
         p = self.extract_pool if pool == "extract" else self.synth_pool
         need = _est_tokens(system) + _est_tokens(user) + max_tokens
         last_err = "no attempt"
@@ -133,10 +141,12 @@ class Groq:
         attempts, last_notice = 0, 0.0
         while attempts < 8 and time.time() < deadline:
             model, wait = p.pick(need)
+            if model is None and p.daily and wait > 20:
+                # Every model is blocked and at least one hit the per-day cap: no point waiting minutes for it.
+                self.daily_until = max(self.daily_until, time.time() + wait)
+                raise LLMError("daily")
             if model is None and wait > deadline - time.time():
-                # Every model is blocked for longer than we can wait. If that's the daily cap, say so now
-                # instead of sitting in one-minute waits until the budget runs out.
-                raise LLMError("daily" if p.daily else "busy")
+                raise LLMError("busy")
             if model is None:
                 if notify and time.time() - last_notice > 20:
                     await notify(f"Waiting for free model capacity (about {wait:.0f}s). Busy when two runs share it.")
