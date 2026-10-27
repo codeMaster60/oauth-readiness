@@ -71,6 +71,7 @@ Honestly, the most useful part of this whole thing was doing instead of reading.
 - Running my own agent on Zoom and Asana turned up five bugs in it: fact IDs leaking into sentences, a forum labelled official, server-to-server docs mixed into a user-login guide, a weird title, and a wait time that contradicted the score. All fixed, all covered by tests now.
 - Then I had the whole site reviewed end to end by a pass that only hunted for problems. The worst ones: the server could stall while parsing big pages, the Google Calendar guide probed the wrong Google endpoint, and it billed Calendar for an audit that only applies to Gmail-style scopes. Fixed, and each one has a regression test.
 - A second review of the fixed site caught two more: two live runs at once could make the agent give up while it was only waiting its turn, and the Google Drive guide said "about a week" when listing someone's files needs a restricted scope and a yearly paid audit. Both fixed and tested too.
+- A third review ran three live jobs at once and found the Drive guide's headline was right but its steps still walked you down the no-review path, Google Sheets scored a point higher than Calendar for the same rules, and Linear picked up docs about a different product. Now restricted Google apps always get submit, audit, wait, publish in that order, Google apps score off the same hand-checked rules, and third-party pages that aren't about the app get skipped.
 
 The full list, with sources, is on `/evidence`.
 
@@ -82,7 +83,7 @@ pip install -r requirements.txt
 cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 52 tests, no network needed
+pytest -q                       # 53 tests, no network needed
 ```
 
 No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.
@@ -97,7 +98,7 @@ No Groq key? The six hand-checked guides still work, and the live agent just tel
 
 - Live guides are a good first draft, not gospel. They're only as good as what search turns up, and docs behind a login come out thin.
 - Free-tier models are slow-ish, so a live run is a minute or two and only two run at once. A third person sees "waiting for a free slot" instead of a blank page.
-- To keep the free quota alive, each visitor gets 5 live runs per 10 minutes and the site caps at 80 a day.
+- To keep the free quota alive, each visitor gets 5 live runs per 10 minutes and the site caps at 80 a day. I checked on the live deploy that you can't fake your IP to get around it: Render's edge overwrites a forged `True-Client-IP` and refuses a forged `CF-Connecting-IP`.
 - Live scores can wobble between runs when a provider's docs are vague. Asana went 3/5, then 2/5. It's written up on `/evidence` rather than hidden.
 - Render's free plan forgets generated guides on redeploy. The hand-checked ones live in the repo.
 - "Tested" means I clicked through it. I didn't submit anything for real review, so review timelines come from docs, not experience.

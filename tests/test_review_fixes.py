@@ -413,3 +413,12 @@ def test_markdown_case_redirect_and_empty_handoff_hidden():
     main.store.save(g)
     html = c.get(f"/guides/{g.slug}").text
     assert "What you can hand off" not in html and ">Stage<" not in html
+
+
+def test_client_ip_skips_render_internal_hops():
+    from app import main
+
+    class Req:
+        def __init__(self, h): self.headers, self.client = h, None
+    assert main._client_ip(Req({"x-forwarded-for": "3.3.3.3, 117.213.200.3, 172.69.123.153, 10.199.143.70"})) == "172.69.123.153"
+    assert main._client_ip(Req({"true-client-ip": "117.213.200.3", "x-forwarded-for": "3.3.3.3"})) == "117.213.200.3"

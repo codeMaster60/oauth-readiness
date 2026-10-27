@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import time
@@ -113,14 +114,21 @@ class GenReq(BaseModel):
 
 
 def _client_ip(request: Request) -> str:
-    """Never trust the first X-Forwarded-For entry: the client can write it. Prefer headers set by the edge,
-    else the last hop the proxy appended (what Render actually saw)."""
+    """Who is this, for the rate limit. Checked on the live Render deploy (Oct 2026): Cloudflare sits in front and
+    sets CF-Connecting-IP and True-Client-IP to the real client. A client-sent True-Client-IP is overwritten and a
+    client-sent CF-Connecting-IP is refused with a 403, so these can't be spoofed. X-Forwarded-For can: the client's
+    own value is kept at the front (and uvicorn's request.client trusts it), so never use its first entry."""
     for h in ("cf-connecting-ip", "true-client-ip"):
         if request.headers.get(h):
             return request.headers[h].strip()
+    # Without the edge headers (local runs, another host): the rightmost public hop. Render's own hops are 10.x.
     fwd = [x.strip() for x in request.headers.get("x-forwarded-for", "").split(",") if x.strip()]
-    if fwd:
-        return fwd[-1]
+    for hop in reversed(fwd):
+        try:
+            if not ipaddress.ip_address(hop).is_private:
+                return hop
+        except ValueError:
+            continue
     return request.client.host if request.client else "unknown"
 
 
@@ -213,14 +221,6 @@ def favicon():
 @app.get("/robots.txt", include_in_schema=False)
 def robots():
     return PlainTextResponse("User-agent: *\nDisallow: /api/\nDisallow: /generate/\n")
-
-
-@app.get("/api/whoami", include_in_schema=False)
-def whoami(request: Request):
-    """Temporary: which client-IP headers the edge sends, to check the rate limit can't be spoofed."""
-    h = request.headers
-    return {"ip": _client_ip(request), "cf": h.get("cf-connecting-ip"), "tci": h.get("true-client-ip"),
-            "xff": h.get("x-forwarded-for"), "xri": h.get("x-real-ip"), "peer": request.client.host if request.client else None}
 
 
 @app.get("/healthz")
