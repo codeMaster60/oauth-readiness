@@ -94,3 +94,11 @@ function watchJob(id) {
   };
   es.onerror = () => { /* browser auto-reconnects; server replays from the start */ };
 }
+
+// Show timestamps in the reader's own timezone (the server runs on UTC).
+document.querySelectorAll("time[data-local]").forEach((t) => {
+  const v = t.getAttribute("datetime");
+  if (!v || !v.includes("T")) return; // plain dates (hand-checked guides) stay as written
+  const d = new Date(v);
+  if (!isNaN(d)) t.textContent = d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+});

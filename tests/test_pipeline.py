@@ -94,3 +94,15 @@ def test_wait_text_matches_score():
              "verdict": {"summary": "s", "active_effort": "1h", "wait": "2-10 weeks", "gating_step": "listing"}}
     g = build_guide("Acme", "", draft, [], [], [], ("unknown", "", None), "m", Stats())
     assert g.verdict.difficulty == 1 and g.verdict.wait.startswith("None to connect users")
+
+
+def test_redirect_step_always_present_and_timestamp_utc():
+    from app.agent.pipeline import build_guide, parse_input
+    from app.models import Stats
+    draft = {"flags": {}, "verdict": {}, "stages": [{"id": "build", "name": "Build", "steps": [
+        {"title": "Generate client secret", "who": "you", "refs": []}]}]}
+    g = build_guide("Zoom", "", draft, [], [], [], ("unknown", "", None), "m", Stats())
+    titles = [s.title for s in g.stages[0].steps]
+    assert any("redirect" in t.lower() for t in titles)
+    assert g.updated.endswith("Z") and "T" in g.updated
+    assert parse_input("zoom")[0] == "Zoom" and parse_input("HubSpot")[0] == "HubSpot"

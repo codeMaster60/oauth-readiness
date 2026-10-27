@@ -19,7 +19,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 import httpx
@@ -102,7 +102,7 @@ def parse_input(q: str) -> tuple[str, str]:
         if core in {"co", "com"} and len(labels) >= 3:
             core = labels[-3]
         return core.replace("-", " ").title(), url
-    return q, ""
+    return (q[:1].upper() + q[1:] if q.islower() else q), ""
 
 
 async def composio_status(name: str, client: httpx.AsyncClient) -> tuple[str, str, Optional[str]]:
@@ -265,6 +265,15 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
             limits=items(st.get("limits"), Note, ["text"]),
             steps=items(st.get("steps"), Step, ["title", "detail", "who", "minutes"]),
         ))
+    build = next((st for st in stages if st.id == "build"), stages[0] if stages else None)
+    if build is None:
+        build = Stage(id="build", name="Build & test (works today)")
+        stages.insert(0, build)
+    if not any(re.search(r"redirect|callback", f"{x.title} {x.detail}", re.I) for x in build.steps):
+        build.steps.insert(min(1, len(build.steps)), Step(
+            title="Add the redirect (callback) URL",
+            detail=f"In the app's OAuth settings, add Composio's callback URL: {COMPOSIO_CALLBACK}. It has to match exactly.",
+            who="you", minutes=2, evidence="documented", sources=["c2"]))
     managed, mnote, murl = composio
     if murl:
         sources.append(Source(id="c1", title="Composio toolkit page", url=murl, kind="composio",
@@ -280,7 +289,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         category=draft.get("category") or "",
         use_case=draft.get("use_case") or "",
         origin="generated",
-        updated=str(date.today()),
+        updated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         model=model,
         verdict=Verdict(
             difficulty=d, label=LABELS[d],

@@ -79,5 +79,5 @@ def to_markdown(g: Guide, base_url: str = "") -> str:
         L += ["## Live probes", ""] + [f"- `{p.url}` — {p.observed}" for p in g.probes] + [""]
     L += ["## Sources", ""] + [f"- [{s.id}] [{s.title}]({s.url}) ({s.kind})" for s in g.sources] + [""]
     origin = "Checked by hand" if g.origin == "curated" else f"Looked up live by the agent ({g.model})"
-    L.append(f"_{origin} · updated {g.updated}" + (f" · {base_url}/guides/{g.slug}" if base_url else "") + "_")
+    L.append(f"_{origin} · updated {g.updated.replace('T', ' ').replace('Z', ' UTC')}" + (f" · {base_url}/guides/{g.slug}" if base_url else "") + "_")
     return "\n".join(L)

@@ -4,7 +4,7 @@
 {% block main %}
 <article class="guide" data-slug="{{ g.slug }}">
   <div class="crumbs"><a href="/">Library</a> / {{ g.name }}
-    <span class="origin {{ g.origin }}">{{ 'Checked by hand' if g.origin == 'curated' else 'Looked up live by the agent' }} · {{ g.updated }}</span>
+    <span class="origin {{ g.origin }}">{{ 'Checked by hand' if g.origin == 'curated' else 'Looked up live by the agent' }} · <time datetime="{{ g.updated }}" data-local>{{ g.updated[:10] }}</time></span>
   </div>
 
   <header class="verdict d{{ g.verdict.difficulty }}">
