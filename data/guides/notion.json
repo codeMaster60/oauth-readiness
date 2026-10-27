@@ -1,0 +1,92 @@
+{
+  "slug": "notion",
+  "name": "Notion",
+  "website": "https://developers.notion.com",
+  "category": "Docs & knowledge",
+  "use_case": "read and write pages and databases in users' Notion workspaces",
+  "origin": "curated",
+  "updated": "2026-10-27",
+  "model": "",
+  "verdict": {
+    "difficulty": 1,
+    "label": "Self-serve · minutes",
+    "summary": "No review is needed for users to install your public connection; the Marketplace listing is optional. The traps are a permanent setting chosen at creation, and the fact that your agent sees only the pages each user picks.",
+    "active_effort": "15–20 min",
+    "wait": "None (optional Marketplace review: 5–10 business days)",
+    "gating_step": "Nothing blocks launch; choosing “Selected workspaces only” at creation permanently rules out a Marketplace listing"
+  },
+  "flags": {"review_for_production": false, "review_wait_days_max": null, "security_assessment": false, "business_verification": false, "partner_gated": false, "paid_requirement": false, "install_cap_before_review": null, "dev_mode_user_cap": null},
+  "concept": "Notion calls its OAuth app a public connection (older docs say public integration). Each user who authorizes it gets their own access token, scoped to their workspace and to the pages they pick in the OAuth page picker. Internal connections and personal access tokens are single-workspace and have no OAuth flow, so they can't serve your users.",
+  "paths": [],
+  "composio": {
+    "managed": "yes",
+    "managed_note": "Composio's Notion toolkit lists a Composio-managed OAuth app (OAuth2; API key is also supported).",
+    "when_own_app": [
+      "Production: users should see your app name on the consent screen, not “Composio”.",
+      "You need scopes beyond Composio's defaults.",
+      "You need your own rate-limit quota (managed apps share quota across Composio users).",
+      "You need faster polling triggers than the managed 15-minute minimum.",
+      "Self-hosted or regional instances of the provider."
+    ],
+    "redirect_uri": "https://backend.composio.dev/api/v3/toolkits/auth/callback"
+  },
+  "stages": [
+    {
+      "id": "build",
+      "name": "Build & test (works today)",
+      "summary": "Create the public connection and it's immediately usable by any workspace in its installation scope.",
+      "limits": [
+        {"text": "After a user authorizes, only that user can interact with the connection in their workspace. Teammates each authorize separately.", "evidence": "documented", "sources": ["s1"]}
+      ],
+      "steps": [
+        {"title": "Open the Developer portal → Build → Public connections", "detail": "app.notion.com/developers/connections → “Create new connection”.", "who": "you", "minutes": 2, "evidence": "documented", "sources": ["s1"]},
+        {"title": "Choose installation scope: Any workspace", "detail": "This can't be changed later. “Selected workspaces only” can never be listed on the Marketplace; you'd have to create a new connection, and users would re-authorize.", "who": "you", "minutes": 1, "evidence": "documented", "sources": ["s1"]},
+        {"title": "Name, development workspace, redirect URI", "detail": "Add Composio's callback URL as a redirect URI.", "who": "you", "minutes": 3, "evidence": "documented", "sources": ["s1"]},
+        {"title": "Pick capabilities", "detail": "Read, update or insert content, and so on. Request only what your agent's tools use; users see these on the consent prompt.", "who": "agent", "minutes": 5, "evidence": "documented", "sources": ["s1"]},
+        {"title": "Copy the OAuth client ID and secret into Composio", "detail": "They're on the Configuration tab after creation.", "who": "you", "minutes": 3, "evidence": "documented", "sources": ["s1"]},
+        {"title": "Authorize from a second workspace and pick pages", "detail": "Confirm the agent can see the pages you selected, and nothing else.", "who": "either", "minutes": 5, "evidence": "documented", "sources": ["s1"]}
+      ]
+    },
+    {
+      "id": "launch",
+      "name": "Go to production",
+      "summary": "No mandatory review. The Marketplace is for discovery only.",
+      "limits": [],
+      "steps": [
+        {"title": "Design onboarding around the page picker", "detail": "Tell users to select the pages or databases the agent needs, or offer a Notion template during auth so they duplicate a ready-made workspace.", "who": "agent", "minutes": 30, "evidence": "documented", "sources": ["s1", "s4"]},
+        {"title": "Optional: submit a Marketplace listing", "detail": "Listings are managed separately (name, description, category, images). Only “Any workspace” connections are eligible. Expect a reply in 5–10 business days.", "who": "you", "minutes": 60, "evidence": "documented", "sources": ["s3"]}
+      ]
+    }
+  ],
+  "requirements": [
+    {"item": "Notion account with a development workspace", "when": "always", "detail": "", "evidence": "documented", "sources": ["s1"]},
+    {"item": "Installation scope = Any workspace", "when": "listing", "detail": "Required for the Marketplace and set only at creation.", "evidence": "documented", "sources": ["s1", "s3"]},
+    {"item": "Notion security review", "when": "listing", "detail": "Only if you list on the Marketplace.", "evidence": "documented", "sources": ["s2"]}
+  ],
+  "gotchas": [
+    {"title": "The agent sees only picked pages", "detail": "“Connected but finds nothing” almost always means the user didn't select pages in the picker. Re-run auth or have them add the connection to the page.", "severity": "high", "evidence": "documented", "sources": ["s1"]},
+    {"title": "Installation scope is permanent", "detail": "Choosing “Selected workspaces only” to be safe locks you out of the Marketplace later.", "severity": "high", "evidence": "documented", "sources": ["s1"]},
+    {"title": "Each teammate authorizes separately", "detail": "Workspace-wide access needs every user to connect. Plan per-user connections in your agent.", "severity": "medium", "evidence": "documented", "sources": ["s1"]}
+  ],
+  "blockers": [
+    {"symptom": "Agent returns object_not_found for a page that exists", "cause": "The page wasn't shared with the connection during authorization.", "fix": "Have the user re-authorize and select it, or add the connection to the page.", "evidence": "uncertain", "sources": ["s1"]},
+    {"symptom": "You need the Marketplace but created a restricted connection", "cause": "Installation scope can't be widened.", "fix": "Create a new “Any workspace” connection; existing users must re-authorize.", "evidence": "documented", "sources": ["s1"]}
+  ],
+  "agent_split": {
+    "agent": ["Choose minimal capabilities", "Build a Notion template for one-click onboarding", "Write user instructions for the page picker", "Draft Marketplace listing copy"],
+    "you": ["Create the public connection and choose its installation scope", "Paste credentials into Composio", "Test from a second workspace", "Submit the optional listing"]
+  },
+  "uncertainties": [
+    "Whether public-connection access tokens expire or need refresh wasn't confirmed from current docs. Composio handles refresh if they do.",
+    "Notion's docs mix old and new names (integration vs connection). UI labels may differ slightly from these steps."
+  ],
+  "probes": [],
+  "sources": [
+    {"id": "s1", "title": "Notion: Public connections", "url": "https://developers.notion.com/guides/get-started/public-connections", "kind": "official", "accessed": "2026-10-27"},
+    {"id": "s2", "title": "Notion: Connections overview", "url": "https://developers.notion.com/guides/get-started/overview", "kind": "official", "accessed": "2026-10-27"},
+    {"id": "s3", "title": "Notion: List on the Marketplace", "url": "https://developers.notion.com/guides/get-started/marketplace-listing", "kind": "official", "accessed": "2026-10-27"},
+    {"id": "s4", "title": "Notion: Authorization", "url": "https://developers.notion.com/guides/get-started/authorization", "kind": "official", "accessed": "2026-10-27"},
+    {"id": "c1", "title": "Composio: Notion toolkit", "url": "https://docs.composio.dev/toolkits/notion", "kind": "composio", "accessed": "2026-10-27"}
+  ],
+  "stats": {"sources_read": 4, "facts_extracted": 0, "quotes_verified": 0, "probes_run": 0, "seconds": null}
+}

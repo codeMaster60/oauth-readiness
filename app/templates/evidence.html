@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Evidence & method · OAuth Readiness{% endblock %}
+{% block main %}
+<article class="prose">
+  <p class="eyebrow">Evidence &amp; method</p>
+  <h1>What we tested, what sources say, and what we couldn't verify</h1>
+  <p class="lede">{{ v.intro }}</p>
+
+  <h2 id="legend">How every claim is tagged</h2>
+  <table class="legend">
+    <tr><td><span class="ev ev-tested">✅ tested</span></td><td>A person actually did it in the provider's console during this project (see setup attempts below).</td></tr>
+    <tr><td><span class="ev ev-probed">🛰️ probed live</span></td><td>The agent made an anonymous request to the provider's real endpoint and observed the behaviour.</td></tr>
+    <tr><td><span class="ev ev-documented">📄 official docs</span></td><td>Stated in the provider's own documentation. For generated guides, the supporting quote was found word-for-word on the fetched page.</td></tr>
+    <tr><td><span class="ev ev-third_party">🔗 third-party</span></td><td>Only a non-official source says it (vendor blog, integration platform docs).</td></tr>
+    <tr><td><span class="ev ev-uncertain">⚠️ uncertain</span></td><td>Inferred, contradictory, or the model's "quote" was not on the page. Don't rely on it without checking.</td></tr>
+  </table>
+
+  <h2 id="attempts">Setup attempts</h2>
+  {% for a in v.attempts %}
+  <div class="attempt">
+    <h3>{{ a.app }} <span class="tag {{ 'ready' if a.status == 'done' else '' }}">{{ a.status }}</span></h3>
+    <p class="muted">{{ a.what }}</p>
+    <ul>{% for o in a.observed %}<li>{{ o }}</li>{% endfor %}</ul>
+  </div>
+  {% endfor %}
+
+  <h2 id="checks">Sample of claims checked against sources</h2>
+  <table class="checks">
+    <thead><tr><th>Claim</th><th>Result</th><th>What we found</th><th>Source</th></tr></thead>
+    {% for c in v.checks %}
+    <tr><td>{{ c.claim }}<div class="muted small">{{ c.app }}</div></td>
+      <td><span class="res res-{{ c.result }}">{{ c.result }}</span></td>
+      <td>{{ c.finding }}</td>
+      <td>{% for s in c.sources %}<a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title }}</a><br>{% endfor %}</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2 id="learned">What we learned (and changed because of it)</h2>
+  <ul>{% for l in v.learned %}<li>{{ l }}</li>{% endfor %}</ul>
+
+  <h2 id="rubric">Difficulty rubric</h2>
+  <p>The agent never picks the score. It extracts facts into flags; this fixed rubric turns flags into 1–5.</p>
+  <table class="legend">
+    <tr><td>Base</td><td>1 point (create the app)</td></tr>
+    <tr><td>Provider review before real users / scale</td><td>+1</td></tr>
+    <tr><td>Review can take 10+ days</td><td>+1 (and +0.5 more if 30+ days)</td></tr>
+    <tr><td>Third-party security assessment</td><td>+1</td></tr>
+    <tr><td>Business / domain / page verification</td><td>+0.5</td></tr>
+    <tr><td>Partner-gated or discretionary access</td><td>+2</td></tr>
+    <tr><td>Paid plan or fee required</td><td>+1</td></tr>
+    <tr><td>Install cap until reviewed</td><td>+0.5</td></tr>
+  </table>
+  <p>Rounded, clamped to 1–5. Labels: {% for k, l in labels.items() %}<b>{{ k }}</b> {{ l }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+
+  <h2 id="agent">How the live agent works</h2>
+  <ol>{% for s in v.pipeline %}<li>{{ s }}</li>{% endfor %}</ol>
+
+  <h2 id="limits">Known limitations</h2>
+  <ul>{% for l in v.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+</article>
+{% endblock %}

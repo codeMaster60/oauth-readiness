@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}OAuth Readiness{% endblock %}</title>
+<meta name="description" content="How long will it take to get your OAuth app approved? Guides for developers and agent builders.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="mark">◐</span> OAuth Readiness</a>
+  <nav>
+    <a href="/#library">Library</a>
+    <a href="/evidence">Evidence &amp; method</a>
+    <a href="https://github.com/codeMaster60/oauth-readiness" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<main>{% block main %}{% endblock %}</main>
+<footer class="foot">
+  Built for agent builders who need users to connect apps. Composio-aware, provider-agnostic.
+  Every claim is tagged with how we know it — see <a href="/evidence">Evidence &amp; method</a>.
+</footer>
+<script src="/static/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

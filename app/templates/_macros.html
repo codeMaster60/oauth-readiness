@@ -1,0 +1,8 @@
+{% macro ev(g, item) -%}
+<span class="ev ev-{{ item.evidence }}" title="{{ EV[item.evidence] }}">{{ EV[item.evidence] }}</span>
+{%- for sid in item.sources %}{% set s = g.source(sid) %}{% if s %}<a class="ref" href="{{ s.url }}" target="_blank" rel="noopener" title="{{ s.title }}">{{ sid }}</a>{% endif %}{% endfor %}
+{%- endmacro %}
+
+{% macro pips(d) -%}
+<span class="pips d{{ d }}" aria-label="Difficulty {{ d }} of 5">{% for i in range(1,6) %}<i class="{{ 'on' if i <= d }}"></i>{% endfor %}</span>
+{%- endmacro %}

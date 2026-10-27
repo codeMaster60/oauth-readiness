@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ev, pips %}
+{% block title %}{{ g.name }} OAuth app: {{ g.verdict.label }} · OAuth Readiness{% endblock %}
+{% block main %}
+<article class="guide" data-slug="{{ g.slug }}">
+  <div class="crumbs"><a href="/">Library</a> / {{ g.name }}
+    <span class="origin {{ g.origin }}">{{ 'Hand-checked' if g.origin == 'curated' else 'Agent-generated' }} · {{ g.updated }}</span>
+  </div>
+
+  <header class="verdict d{{ g.verdict.difficulty }}">
+    <div class="v-main">
+      <p class="eyebrow">Getting a {{ g.name }} OAuth app ready for production{% if g.use_case %} — to {{ g.use_case }}{% endif %}</p>
+      <h1>{{ g.name }}</h1>
+      <div class="v-score">{{ pips(g.verdict.difficulty) }} <b>{{ g.verdict.difficulty }}/5</b> <span>{{ g.verdict.label }}</span></div>
+      <p class="v-summary">{{ g.verdict.summary }}</p>
+    </div>
+    <dl class="v-facts">
+      <div><dt>Hands-on effort</dt><dd>{{ g.verdict.active_effort }}</dd></div>
+      <div><dt>Waiting on {{ g.name }}</dt><dd>{{ g.verdict.wait }}</dd></div>
+      <div class="wide"><dt>What usually blocks launch</dt><dd>{{ g.verdict.gating_step }}</dd></div>
+    </dl>
+    <details class="why">
+      <summary>Why {{ g.verdict.difficulty }}/5?</summary>
+      <ul>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+      <p class="muted">Scores come from a fixed rubric over extracted facts, not from the model's opinion. <a href="/evidence#rubric">See the rubric.</a></p>
+    </details>
+  </header>
+
+  <div class="share">
+    <button data-copy-link>Copy link</button>
+    <a href="/guides/{{ g.slug }}.md" target="_blank">Markdown</a>
+    <a href="/api/guides/{{ g.slug }}" target="_blank">JSON (for your agent)</a>
+    <button data-print>Print / PDF</button>
+    <span class="counts">
+      {% for k, n in counts.items() if n %}<span class="ev ev-{{ k }}">{{ EV[k] }} × {{ n }}</span>{% endfor %}
+    </span>
+  </div>
+
+  <div class="layout">
+  <nav class="toc">
+    <a href="#own-app">Do you need your own app?</a>
+    {% if g.paths %}<a href="#paths">Pick your path</a>{% endif %}
+    {% for st in g.stages %}<a href="#{{ st.id }}">{{ st.name }}</a>{% endfor %}
+    {% if g.requirements %}<a href="#requirements">Requirements</a>{% endif %}
+    {% if g.gotchas %}<a href="#gotchas">Gotchas</a>{% endif %}
+    {% if g.blockers %}<a href="#blockers">When you hit a blocker</a>{% endif %}
+    <a href="#split">Agent vs. you</a>
+    {% if g.uncertainties %}<a href="#uncertain">Not verified</a>{% endif %}
+    <a href="#sources">Sources</a>
+    <div class="progress"><span id="prog-n">0</span>/<span id="prog-t">0</span> steps done</div>
+  </nav>
+
+  <div class="content">
+    {% if g.concept %}<p class="concept">{{ g.concept }}</p>{% endif %}
+
+    <section id="own-app" class="box composio">
+      <h2>Do you need your own OAuth app?</h2>
+      <p><b>Composio-managed app: {{ g.composio.managed }}.</b> {{ g.composio.managed_note }}</p>
+      <p>Start on the managed app while you build. Bring your own when:</p>
+      <ul>{% for x in g.composio.when_own_app %}<li>{{ x }}</li>{% endfor %}</ul>
+      <p class="callback">Callback / redirect URL to register with {{ g.name }}:
+        <code>{{ g.composio.redirect_uri }}</code> <button data-copy="{{ g.composio.redirect_uri }}">Copy</button></p>
+      <p class="muted small">Composio's docs show more than one callback path (v3, v3.1, legacy v1) — if your auth config
+        displays a different one, use that. <a href="/evidence#checks">Why we flag this.</a></p>
+      <p class="muted small">Switching an existing user base from the managed app to yours means every user reconnects —
+        connections are tied to the app they were created with.</p>
+    </section>
+
+    {% if g.paths %}
+    <section id="paths">
+      <h2>Pick your path — it depends on what you need</h2>
+      <div class="paths">
+        {% for p in g.paths %}
+        <div class="path d{{ p.difficulty }}">
+          <div class="path-h">{{ pips(p.difficulty) }} <b>{{ p.name }}</b></div>
+          <p>{{ p.when }}</p>
+          <p class="muted">Wait: {{ p.wait }}</p>
+          <div class="cite">{{ ev(g, p) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% for st in g.stages %}
+    <section id="{{ st.id }}" class="stage">
+      <h2>{{ st.name }}</h2>
+      {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
+      {% for n in st.limits %}
+        <div class="limit"><b>Limit</b> {{ n.text }} <span class="cite">{{ ev(g, n) }}</span></div>
+      {% endfor %}
+      <ol class="steps">
+        {% for s in st.steps %}
+        <li class="step">
+          <label><input type="checkbox" data-step="{{ st.id }}-{{ loop.index }}">
+            <span class="s-title">{{ s.title }}</span></label>
+          <span class="who who-{{ s.who }}">{{ WHO[s.who] }}</span>{% if s.minutes %}<span class="mins">~{{ s.minutes }} min</span>{% endif %}
+          {% if s.detail %}<p>{{ s.detail }}</p>{% endif %}
+          <div class="cite">{{ ev(g, s) }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+    {% endfor %}
+
+    {% if g.requirements %}
+    <section id="requirements">
+      <h2>Requirements</h2>
+      <table class="reqs">
+        {% for r in g.requirements %}
+        <tr><td><b>{{ r.item }}</b>{% if r.detail %}<div class="muted">{{ r.detail }}</div>{% endif %}</td>
+          <td><span class="tag">{{ r.when }}</span></td><td class="cite">{{ ev(g, r) }}</td></tr>
+        {% endfor %}
+      </table>
+    </section>
+    {% endif %}
+
+    {% if g.gotchas %}
+    <section id="gotchas">
+      <h2>Gotchas</h2>
+      {% for x in g.gotchas %}
+      <div class="gotcha sev-{{ x.severity }}"><span class="sev">{{ x.severity }}</span>
+        <b>{{ x.title }}</b> <p>{{ x.detail }}</p><div class="cite">{{ ev(g, x) }}</div></div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if g.blockers %}
+    <section id="blockers">
+      <h2>When you hit a blocker</h2>
+      {% for b in g.blockers %}
+      <div class="blocker"><code>{{ b.symptom }}</code>
+        <p>{{ b.cause }}</p><p><b>Fix:</b> {{ b.fix }}</p><div class="cite">{{ ev(g, b) }}</div></div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <section id="split">
+      <h2>What an agent can do vs. where you take over</h2>
+      <div class="split">
+        <div><h3>🤖 Agent can</h3><ul>{% for x in g.agent_split.agent %}<li>{{ x }}</li>{% endfor %}</ul></div>
+        <div><h3>🧑 You must</h3><ul>{% for x in g.agent_split.you %}<li>{{ x }}</li>{% endfor %}</ul></div>
+      </div>
+    </section>
+
+    {% if g.uncertainties %}
+    <section id="uncertain" class="box warn">
+      <h2>Not verified / uncertain</h2>
+      <ul>{% for u in g.uncertainties %}<li>{{ u }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {% if g.probes %}
+    <section id="probes">
+      <h2>Live probes</h2>
+      <p class="muted">Anonymous requests the agent made to {{ g.name }}'s real endpoints — no account needed.</p>
+      {% for p in g.probes %}<div class="probe"><code>{{ p.url }}</code><p>{{ p.observed }}</p></div>{% endfor %}
+    </section>
+    {% endif %}
+
+    <section id="sources">
+      <h2>Sources</h2>
+      <ol class="sources">
+        {% for s in g.sources %}
+        <li><span class="sid">{{ s.id }}</span> <a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title }}</a>
+          <span class="tag">{{ s.kind.replace('_', '-') }}</span>{% if s.accessed %}<span class="muted small"> accessed {{ s.accessed }}</span>{% endif %}</li>
+        {% endfor %}
+      </ol>
+      {% if g.origin == 'generated' %}
+      <p class="muted small">Generated in {{ g.stats.seconds }}s by {{ g.model }} from {{ g.stats.sources_read }} pages ·
+        {{ g.stats.facts_extracted }} facts · {{ g.stats.quotes_verified }} quotes verified word-for-word ·
+        {{ g.stats.probes_run }} live probes.
+        <a href="#" data-try="{{ g.name }}" data-force="1">Regenerate</a></p>
+      {% endif %}
+    </section>
+  </div>
+  </div>
+</article>
+{% endblock %}

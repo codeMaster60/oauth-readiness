@@ -1,0 +1,402 @@
+[
+ {
+  "name": "Gmail",
+  "category": "Email"
+ },
+ {
+  "name": "Google Calendar",
+  "category": "Calendar"
+ },
+ {
+  "name": "Google Drive",
+  "category": "Files"
+ },
+ {
+  "name": "Google Sheets",
+  "category": "Spreadsheets"
+ },
+ {
+  "name": "Google Docs",
+  "category": "Docs & knowledge"
+ },
+ {
+  "name": "YouTube",
+  "category": "Video"
+ },
+ {
+  "name": "Outlook",
+  "category": "Email"
+ },
+ {
+  "name": "Microsoft Teams",
+  "category": "Messaging"
+ },
+ {
+  "name": "OneDrive",
+  "category": "Files"
+ },
+ {
+  "name": "SharePoint",
+  "category": "Files"
+ },
+ {
+  "name": "Slack",
+  "category": "Messaging"
+ },
+ {
+  "name": "Discord",
+  "category": "Messaging"
+ },
+ {
+  "name": "Zoom",
+  "category": "Meetings"
+ },
+ {
+  "name": "Webex",
+  "category": "Meetings"
+ },
+ {
+  "name": "GitHub",
+  "category": "Dev tools"
+ },
+ {
+  "name": "GitLab",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Bitbucket",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Jira",
+  "category": "Project management"
+ },
+ {
+  "name": "Confluence",
+  "category": "Docs & knowledge"
+ },
+ {
+  "name": "Linear",
+  "category": "Project management"
+ },
+ {
+  "name": "Asana",
+  "category": "Project management"
+ },
+ {
+  "name": "Trello",
+  "category": "Project management"
+ },
+ {
+  "name": "Monday.com",
+  "category": "Project management"
+ },
+ {
+  "name": "ClickUp",
+  "category": "Project management"
+ },
+ {
+  "name": "Notion",
+  "category": "Docs & knowledge"
+ },
+ {
+  "name": "Airtable",
+  "category": "Databases"
+ },
+ {
+  "name": "Coda",
+  "category": "Docs & knowledge"
+ },
+ {
+  "name": "Miro",
+  "category": "Whiteboards"
+ },
+ {
+  "name": "Figma",
+  "category": "Design"
+ },
+ {
+  "name": "Canva",
+  "category": "Design"
+ },
+ {
+  "name": "Dropbox",
+  "category": "Files"
+ },
+ {
+  "name": "Box",
+  "category": "Files"
+ },
+ {
+  "name": "Salesforce",
+  "category": "CRM"
+ },
+ {
+  "name": "HubSpot",
+  "category": "CRM"
+ },
+ {
+  "name": "Pipedrive",
+  "category": "CRM"
+ },
+ {
+  "name": "Zoho CRM",
+  "category": "CRM"
+ },
+ {
+  "name": "Attio",
+  "category": "CRM"
+ },
+ {
+  "name": "Close",
+  "category": "CRM"
+ },
+ {
+  "name": "Intercom",
+  "category": "Support"
+ },
+ {
+  "name": "Zendesk",
+  "category": "Support"
+ },
+ {
+  "name": "Freshdesk",
+  "category": "Support"
+ },
+ {
+  "name": "Help Scout",
+  "category": "Support"
+ },
+ {
+  "name": "Front",
+  "category": "Support"
+ },
+ {
+  "name": "Shopify",
+  "category": "E-commerce"
+ },
+ {
+  "name": "Stripe",
+  "category": "Payments"
+ },
+ {
+  "name": "PayPal",
+  "category": "Payments"
+ },
+ {
+  "name": "Square",
+  "category": "Payments"
+ },
+ {
+  "name": "QuickBooks",
+  "category": "Accounting"
+ },
+ {
+  "name": "Xero",
+  "category": "Accounting"
+ },
+ {
+  "name": "FreshBooks",
+  "category": "Accounting"
+ },
+ {
+  "name": "Mailchimp",
+  "category": "Marketing"
+ },
+ {
+  "name": "Klaviyo",
+  "category": "Marketing"
+ },
+ {
+  "name": "SendGrid",
+  "category": "Email"
+ },
+ {
+  "name": "Calendly",
+  "category": "Calendar"
+ },
+ {
+  "name": "Cal.com",
+  "category": "Calendar"
+ },
+ {
+  "name": "DocuSign",
+  "category": "E-signature"
+ },
+ {
+  "name": "Dropbox Sign",
+  "category": "E-signature"
+ },
+ {
+  "name": "LinkedIn",
+  "category": "Social"
+ },
+ {
+  "name": "X (Twitter)",
+  "category": "Social"
+ },
+ {
+  "name": "Reddit",
+  "category": "Social"
+ },
+ {
+  "name": "Facebook Pages",
+  "category": "Social"
+ },
+ {
+  "name": "Instagram",
+  "category": "Social"
+ },
+ {
+  "name": "TikTok",
+  "category": "Social"
+ },
+ {
+  "name": "Pinterest",
+  "category": "Social"
+ },
+ {
+  "name": "Spotify",
+  "category": "Media"
+ },
+ {
+  "name": "Strava",
+  "category": "Health & fitness"
+ },
+ {
+  "name": "Fitbit",
+  "category": "Health & fitness"
+ },
+ {
+  "name": "Typeform",
+  "category": "Forms"
+ },
+ {
+  "name": "Google Forms",
+  "category": "Forms"
+ },
+ {
+  "name": "Jotform",
+  "category": "Forms"
+ },
+ {
+  "name": "Webflow",
+  "category": "Websites"
+ },
+ {
+  "name": "WordPress.com",
+  "category": "Websites"
+ },
+ {
+  "name": "Wix",
+  "category": "Websites"
+ },
+ {
+  "name": "Contentful",
+  "category": "CMS"
+ },
+ {
+  "name": "Sanity",
+  "category": "CMS"
+ },
+ {
+  "name": "Vercel",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Netlify",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Heroku",
+  "category": "Dev tools"
+ },
+ {
+  "name": "DigitalOcean",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Sentry",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Datadog",
+  "category": "Dev tools"
+ },
+ {
+  "name": "PagerDuty",
+  "category": "Dev tools"
+ },
+ {
+  "name": "Okta",
+  "category": "Identity"
+ },
+ {
+  "name": "Auth0",
+  "category": "Identity"
+ },
+ {
+  "name": "Microsoft Entra ID",
+  "category": "Identity"
+ },
+ {
+  "name": "Gusto",
+  "category": "HR"
+ },
+ {
+  "name": "BambooHR",
+  "category": "HR"
+ },
+ {
+  "name": "Workday",
+  "category": "HR"
+ },
+ {
+  "name": "Greenhouse",
+  "category": "Recruiting"
+ },
+ {
+  "name": "Lever",
+  "category": "Recruiting"
+ },
+ {
+  "name": "Todoist",
+  "category": "Productivity"
+ },
+ {
+  "name": "Evernote",
+  "category": "Docs & knowledge"
+ },
+ {
+  "name": "Smartsheet",
+  "category": "Project management"
+ },
+ {
+  "name": "Basecamp",
+  "category": "Project management"
+ },
+ {
+  "name": "Wrike",
+  "category": "Project management"
+ },
+ {
+  "name": "Twilio",
+  "category": "Communications"
+ },
+ {
+  "name": "RingCentral",
+  "category": "Communications"
+ },
+ {
+  "name": "Gong",
+  "category": "Sales"
+ },
+ {
+  "name": "Outreach",
+  "category": "Sales"
+ },
+ {
+  "name": "Apollo",
+  "category": "Sales"
+ }
+]
