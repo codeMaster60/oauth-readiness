@@ -65,8 +65,11 @@ def home(request: Request):
 
 @app.get("/guides/{slug}", response_class=HTMLResponse)
 def guide_page(request: Request, slug: str):
-    if slug.endswith(".md"):
-        return guide_md(request, slug[:-3])
+    if slug.lower().endswith(".md"):
+        base = slug[:-3]
+        if not store.get(base) and store.get(base.lower()):
+            return RedirectResponse(f"/guides/{base.lower()}.md", status_code=301)
+        return guide_md(request, base)
     g = store.get(slug)
     if not g and slug.lower() != slug and store.get(slug.lower()):
         return RedirectResponse(f"/guides/{slug.lower()}", status_code=301)
@@ -210,6 +213,14 @@ def favicon():
 @app.get("/robots.txt", include_in_schema=False)
 def robots():
     return PlainTextResponse("User-agent: *\nDisallow: /api/\nDisallow: /generate/\n")
+
+
+@app.get("/api/whoami", include_in_schema=False)
+def whoami(request: Request):
+    """Temporary: which client-IP headers the edge sends, to check the rate limit can't be spoofed."""
+    h = request.headers
+    return {"ip": _client_ip(request), "cf": h.get("cf-connecting-ip"), "tci": h.get("true-client-ip"),
+            "xff": h.get("x-forwarded-for"), "xri": h.get("x-real-ip"), "peer": request.client.host if request.client else None}
 
 
 @app.get("/healthz")

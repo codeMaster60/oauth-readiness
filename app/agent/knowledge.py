@@ -72,22 +72,29 @@ def known_pages(official_domains: set[str], name: str) -> list[Page]:
     return list(by_url.values())
 
 
-# Google's restricted scopes (the ones that need verification + a yearly CASA audit). From Google's restricted
-# scope list; the Gmail guide's console test confirmed gmail.readonly lands under "restricted".
-GOOGLE_RESTRICTED = (
-    "mail.google.com", "gmail.readonly", "gmail.modify", "gmail.compose", "gmail.insert", "gmail.metadata",
-    "gmail.settings.basic", "gmail.settings.sharing", "auth/drive\"", "auth/drive ", "drive.readonly",
-    "drive.metadata", "drive.metadata.readonly", "drive.activity", "drive.scripts", "drive.photos.readonly",
-)
-# Plain-language use cases that can't be done without a restricted scope.
+# Google's restricted scopes (the ones that need verification + a yearly CASA audit), from Google's restricted
+# scope list; the Gmail guide's console test confirmed gmail.readonly lands under "restricted". Matched as scope
+# names, so a step that just mentions the Gmail website doesn't count. (The full-mail scope https://mail.google.com/
+# is left out for that reason; gmail.* and the use-case check cover Gmail.)
+RESTRICTED_SCOPE_RE = re.compile(
+    r"\bgmail\.(?:readonly|modify|compose|insert|metadata|settings\.basic|settings\.sharing)\b|"
+    r"\bdrive\.(?:readonly|metadata(?:\.readonly)?|activity(?:\.readonly)?|scripts|photos\.readonly)\b|"
+    r"auth/drive\b(?!\.)", re.I)
+# Plain-language use cases that can't be done without a restricted scope (only checked for Gmail and Drive).
 RESTRICTED_USE = re.compile(
     r"\b(read|list|search|scan|summari[sz]e|sync|index|browse|organi[sz]e|access)\b[^.]{0,40}\b"
     r"(e-?mails?|inbox|messages|mailbox|files|drive|folders)\b", re.I)
+# Google products whose normal scopes are sensitive, not restricted. Their use-case wording ("read spreadsheets in
+# the user's Drive") must not send them down the CASA path; only a restricted scope in the guide itself can.
+NOT_RESTRICTED_PRODUCTS = re.compile(r"\b(?:sheets|docs|calendar|slides|forms|youtube|meet|contacts|tasks|classroom|"
+                                     r"analytics|ads|search console|photos|keep|chat|sign[- ]?in)\b", re.I)
 
 
-def needs_google_restricted(use_case: str, texts: list[str]) -> bool:
-    """True if this Google use case needs a restricted scope (and so CASA), whatever the model concluded."""
-    blob = " ".join(texts).lower()
-    if any(sc in blob for sc in GOOGLE_RESTRICTED):
+def needs_google_restricted(use_case: str, texts: list[str], name: str = "") -> bool:
+    """True if this Google guide needs a restricted scope (and so CASA), whatever the model concluded.
+    Scopes the guide actually lists decide first; the use-case wording is a fallback for Gmail and Drive only."""
+    if RESTRICTED_SCOPE_RE.search(" ".join(texts)):
         return True
+    if NOT_RESTRICTED_PRODUCTS.search(name or ""):
+        return False
     return bool(RESTRICTED_USE.search(use_case or ""))

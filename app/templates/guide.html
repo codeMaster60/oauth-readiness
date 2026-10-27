@@ -40,11 +40,11 @@
   <nav class="toc">
     <a href="#own-app">Do you need your own app?</a>
     {% if g.paths %}<a href="#paths">Pick your path</a>{% endif %}
-    {% for st in g.stages %}<a href="#{{ st.id }}">{{ st.name }}</a>{% endfor %}
+    {% for st in g.stages if st.steps %}<a href="#{{ st.id }}">{{ st.name }}</a>{% endfor %}
     {% if g.requirements %}<a href="#requirements">Requirements</a>{% endif %}
     {% if g.gotchas %}<a href="#gotchas">Gotchas</a>{% endif %}
     {% if g.blockers %}<a href="#blockers">When you hit a blocker</a>{% endif %}
-    <a href="#split">Agent vs. you</a>
+    {% if g.agent_split.agent or g.agent_split.you %}<a href="#split">Agent vs. you</a>{% endif %}
     {% if g.uncertainties %}<a href="#uncertain">Not confirmed</a>{% endif %}
     <a href="#sources">Sources</a>
     <div class="progress"><span id="prog-n">0</span>/<span id="prog-t">0</span> steps done</div>
@@ -83,7 +83,7 @@
     </section>
     {% endif %}
 
-    {% for st in g.stages %}
+    {% for st in g.stages if st.steps %}
     <section id="{{ st.id }}" class="stage">
       <h2>{{ st.name }}</h2>
       {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
@@ -136,13 +136,15 @@
     </section>
     {% endif %}
 
+    {% if g.agent_split.agent or g.agent_split.you %}
     <section id="split">
       <h2>What you can hand off, and what you can't</h2>
       <div class="split">
-        <div><h3>An agent can</h3><ul>{% for x in g.agent_split.agent %}<li>{{ x }}</li>{% endfor %}</ul></div>
-        <div><h3>You have to</h3><ul>{% for x in g.agent_split.you %}<li>{{ x }}</li>{% endfor %}</ul></div>
+        {% if g.agent_split.agent %}<div><h3>An agent can</h3><ul>{% for x in g.agent_split.agent %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+        {% if g.agent_split.you %}<div><h3>You have to</h3><ul>{% for x in g.agent_split.you %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
       </div>
     </section>
+    {% endif %}
 
     {% if g.uncertainties %}
     <section id="uncertain" class="box warn">

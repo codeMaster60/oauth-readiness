@@ -313,3 +313,103 @@ def test_non_breaking_hyphen_durations_are_rewritten():
     g = build_guide("Acme", "", draft, [], [], [], ("yes", "", None), "m", Stats())
     d = next(st for st in g.stages if st.id == "launch").steps[0].detail
     assert d == "Review takes about 30 days."
+
+
+# ---- third review -----------------------------------------------------------------------------------------------
+
+def _drive_pages():
+    from app.agent.web import Page
+    return [Page(url=f["url"], title="t", text="q", official=True) for f in _known_google()]
+
+
+def test_restricted_launch_runs_submit_casa_wait_publish():
+    from app.agent.pipeline import NARROW_NOTE
+    draft = {"use_case": "read and list files", "flags": {"review_for_production": True}, "verdict": {},
+             "stages": [
+                 {"id": "build", "steps": [{"title": "Configure consent screen",
+                                            "detail": "List scopes (e.g. .../auth/drive.file).", "refs": []}]},
+                 {"id": "launch", "steps": [
+                     {"title": "Switch to Production", "detail": "Click Publish.", "refs": []},
+                     {"title": "Remove test-user limit", "detail": "No further caps; any user can authorize the app.",
+                      "refs": []},
+                     {"title": "Update branding", "detail": "Add a logo.", "refs": []},
+                     {"title": "Complete CASA", "detail": "Do the audit.", "refs": []}]}],
+             "gotchas": [{"title": "Sensitive scopes", "detail": "If you ever request a sensitive scope you need review.",
+                          "severity": "medium", "refs": []}],
+             "uncertainties": ["Review may take longer if you later add restricted scopes."]}
+    g = build_guide("Google Drive", "", draft, _known_google(), [], _drive_pages(), ("yes", "", None), "m", Stats())
+    launch = next(st for st in g.stages if st.id == "launch")
+    titles = [x.title for x in launch.steps]
+    assert titles == ["Update branding", "Submit for restricted-scope verification", "Complete CASA",
+                      "Wait for Google's review", "Switch to Production"]
+    assert not any("no further caps" in x.detail.lower() for st in g.stages for x in st.steps)
+    build = next(st for st in g.stages if st.id == "build")
+    assert NARROW_NOTE in next(x for x in build.steps if x.title == "Configure consent screen").detail
+    assert not g.gotchas and not any("later add restricted" in u for u in g.uncertainties)
+
+
+def test_google_sensitive_apps_score_the_same_and_empty_stages_go():
+    base = {"flags": {"review_for_production": True, "install_cap_before_review": 100, "dev_mode_user_cap": 100},
+            "verdict": {}, "stages": [{"id": "build", "steps": []}, {"id": "launch", "steps": [
+                {"title": "Submit for verification", "refs": []}]}, {"id": "stage3", "name": "", "steps": []}]}
+    import copy
+    sheets = copy.deepcopy(base)
+    sheets["use_case"] = "read spreadsheets in users' Drive"
+    sheets["flags"]["business_verification"] = True
+    cal = copy.deepcopy(base)
+    cal["use_case"] = "read and write calendar events"
+    cal["flags"].pop("install_cap_before_review")
+    gs = build_guide("Google Sheets", "", sheets, _known_google()[:1], [], [], ("yes", "", None), "m", Stats())
+    gc = build_guide("Google Calendar", "", cal, _known_google()[:1], [], [], ("yes", "", None), "m", Stats())
+    assert gs.flags.install_cap_before_review is None and not gs.flags.security_assessment
+    assert gs.verdict.difficulty == gc.verdict.difficulty
+    assert [st.id for st in gs.stages] == ["build", "launch"]
+
+
+def test_restricted_check_uses_listed_scopes_not_loose_wording():
+    from app.agent.knowledge import needs_google_restricted
+    assert not needs_google_restricted("read spreadsheets in users' Drive", ["Add the spreadsheets scope"], "Google Sheets")
+    assert not needs_google_restricted("send email", ["Open https://mail.google.com/ to check it arrived"], "Gmail")
+    assert needs_google_restricted("send email", ["Request gmail.readonly"], "Gmail")
+    assert needs_google_restricted("list a user's files", ["Add drive.file"], "Google Drive")
+    assert needs_google_restricted("x", ["scope https://www.googleapis.com/auth/drive for full access"], "Google Drive")
+    assert not needs_google_restricted("x", ["scope https://www.googleapis.com/auth/drive.file"], "Google Drive")
+
+
+def test_missing_launch_stage_is_added():
+    draft = {"flags": {}, "verdict": {}, "stages": [{"id": "build", "steps": [{"title": "Create app", "refs": []}]}]}
+    g = build_guide("Linear", "", draft, [], [], [], ("yes", "", None), "m", Stats())
+    assert [st.id for st in g.stages] == ["build", "launch"]
+    assert "outside your own account" in g.stages[1].steps[0].title
+
+
+def test_docs_pages_are_not_probed_and_off_topic_pages_skipped():
+    from app.agent.pipeline import about_app
+    from app.agent.probe import find_authorize_urls
+    from app.agent.web import Page
+    text = "See https://linear.app/developers/oauth-actor-authorization and https://linear.app/oauth/authorize now."
+    assert find_authorize_urls([text], {"linear.app"}) == ["https://linear.app/oauth/authorize"]
+    hl = Page(url="https://blog.x.com/highlevel", title="HighLevel OAuth branding", text="HighLevel ... Linear once.")
+    assert not about_app("Linear", hl)
+    assert about_app("Linear", Page(url="https://x.com/a", title="Linear OAuth guide", text=""))
+
+
+def test_consent_and_login_are_people_work():
+    draft = {"flags": {}, "verdict": {}, "agent_split": {"agent": ["Run authorization-code flow", "draft privacy policy"]},
+             "stages": [{"id": "build", "steps": [
+                 {"title": "Run test flow", "detail": "Log in as a test user and grant consent.", "who": "either",
+                  "refs": []}]}]}
+    g = _guide(draft)
+    assert g.agent_split.agent == ["draft privacy policy"]
+    assert next(x for x in g.stages[0].steps if x.title == "Run test flow").who == "you"
+
+
+def test_markdown_case_redirect_and_empty_handoff_hidden():
+    from app import main
+    c = TestClient(main.app)
+    r = c.get("/guides/GITHUB.md", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/guides/github.md"
+    g = build_guide("Acme", "", {"flags": {}, "verdict": {}}, [], [], [], ("yes", "", None), "m", Stats())
+    main.store.save(g)
+    html = c.get(f"/guides/{g.slug}").text
+    assert "What you can hand off" not in html and ">Stage<" not in html

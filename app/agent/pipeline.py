@@ -27,7 +27,7 @@ import httpx
 from ..models import (LABELS, AgentSplit, label, Blocker, ComposioInfo, Flags, Gotcha, Guide, Note, PathOption,
                       Probe, Requirement, Source, Stage, Stats, Step, Verdict, score)
 from . import probe as probes
-from .knowledge import known_pages, needs_google_restricted
+from .knowledge import RESTRICTED_SCOPE_RE, known_pages, needs_google_restricted
 from .llm import Groq, LLMError
 from .prompts import EXTRACT_SYSTEM, EXTRACT_USER, SYNTH_SYSTEM, SYNTH_USER
 from .web import (Page, domain_of, primary_domain, fetch, guess_official_domains, keep_url, pick_snippets, quote_on_page,
@@ -248,6 +248,17 @@ def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> 
     return out
 
 
+def about_app(name: str, page: Page) -> bool:
+    """Third-party pages are often about a neighbouring product (a HighLevel page that mentions Linear once).
+    Keep one only if it's clearly about this app: named in the title, or mentioned several times."""
+    key = name.lower().split()[0] if name else ""
+    if not key:
+        return True
+    if key in (page.title or "").lower():
+        return True
+    return len(re.findall(rf"\b{re.escape(key)}\b", (page.text or "").lower())) >= 4
+
+
 SECURITY_RE = re.compile(r"\bCASA\b|security assessment|third[- ]party (?:security )?(?:assessment|audit)|"
                          r"penetration test|pen[- ]?test|SOC ?2|letter of (?:validation|assessment)", re.I)
 JUNK_UNCERTAIN = re.compile(r"not provided|website url|url for|exact url|link to the", re.I)
@@ -266,7 +277,8 @@ def wait_days(text: str) -> Optional[int]:
 
 
 HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
-                        r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b", re.I)
+                        r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b|grant(?:s|ing)? consent|log(?:s|ging)? in as|"
+                        r"authori[sz]ation[- ]code flow|\bauth(?:orization)? flow\b", re.I)
 
 
 def split_work(raw: dict) -> AgentSplit:
@@ -275,6 +287,95 @@ def split_work(raw: dict) -> AgentSplit:
     you = [str(v) for v in raw.get("you", [])]
     moved = [a for a in agent if HUMAN_ONLY.search(a)]
     return AgentSplit(agent=[a for a in agent if a not in moved], you=you + [m for m in moved if m not in you])
+
+
+HUMAN_STEP = re.compile(r"grant(?:s|ing)? consent|clicks? (?:allow|accept)|log(?:s|ging)? in as|sign(?:s|ing)? in as|"
+                        r"authori[sz]ation[- ]code flow", re.I)
+NARROW_SCOPE_RE = re.compile(r"drive\.file|gmail\.send", re.I)
+NARROW_NOTE = ("That's the narrow path. To read or list the user's existing data you need a restricted scope "
+               "(drive.readonly or gmail.readonly), see 'Pick your path'.")
+CONDITIONAL_SCOPE = re.compile(r"\bif (?:you )?(?:ever |later |also |then )?(?:request|add|use|need|switch to|move to)\w*"
+                               r"(?: a| any| the| more)? (?:sensitive|restricted|broader)", re.I)
+STALE_CAP = re.compile(r"no (?:further|more|other) (?:user )?(?:caps?|limits?)|any (?:google )?user can (?:now )?"
+                       r"(?:authori[sz]e|sign in|connect|use)|remove (?:the )?test[- ]user (?:limit|cap)", re.I)
+
+
+def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
+    """Restricted Google scopes always go: submit -> CASA -> wait (weeks) -> switch to production. Models often skip
+    the review steps or put CASA after 'publish', and some claim publishing lifts every cap. Rebuild the order."""
+    launch = next((st for st in stages if st.id != "build"), None)
+    if launch is None:
+        launch = Stage(id="launch", name="Go to production")
+        stages.append(launch)
+    cite = {"evidence": "documented", "sources": [casa_sid]} if casa_sid else {"evidence": "uncertain"}
+    steps = [x for x in launch.steps if not STALE_CAP.search(f"{x.title} {x.detail}")]
+
+    def kind(x: Step) -> str:
+        if re.search(r"casa|security assessment", x.title, re.I):
+            return "casa"
+        if re.search(r"\bwait\b", x.title, re.I):
+            return "wait"
+        if re.search(r"\bsubmit\b|verification request|request verification", x.title, re.I):
+            return "submit"
+        if re.search(r"brand|logo|privacy|website|domain|demo|video|justif|asset", x.title, re.I):
+            return "prep"  # review material always comes before submitting, wherever the model put it
+        if re.search(r"publish|production|go live|switch|launch|marketplace|listing", x.title, re.I):
+            return "publish"
+        return "other"
+    kinds = [kind(x) for x in steps]
+    first = next((i for i, k in enumerate(kinds) if k not in ("other", "prep")), len(steps))
+    of = lambda k: [x for x, kk in zip(steps, kinds) if kk == k]  # noqa: E731
+    prep = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "prep" or (k == "other" and i < first)]
+    tail = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "other" and i >= first]
+    submit = of("submit") or [Step(
+        title="Submit for restricted-scope verification", who="you", minutes=20,
+        detail="In Google Cloud, open Google Auth Platform, then Verification Center, and submit. Have the scope "
+               "justification, a demo video of the consent flow and a privacy policy on your verified domain ready.",
+        **cite)]
+    casa = of("casa") or [Step(
+        title="Complete the CASA security assessment", who="you",
+        detail="Restricted scopes need a CASA security assessment with one of Google's authorized labs. For most apps "
+               "that means running a security scan and having the lab review the results. It repeats every year.",
+        **cite)]
+    wait = of("wait") or [Step(title="Wait for Google's review", who="you", **cite)]
+    for x in wait:
+        # Sub-estimates ("brand 2-3 days, sensitive 3-5 days") only confuse a weeks-long restricted review.
+        x.detail = ("Expect several weeks. Google publishes no fixed time for restricted scopes, and the CASA "
+                    "assessment runs on the assessor's schedule. Watch for follow-up emails from Google and answer "
+                    "them quickly.")
+    publish = of("publish") or [Step(
+        title="Switch the app to In production", who="you", minutes=2, evidence="uncertain",
+        detail="On the Audience page, click Publish app once verification is approved. Before that, users outside "
+               "your test list see the unverified-app warning and new sign-ups are capped.")]
+    launch.steps = prep + submit + casa + wait + publish + tail
+
+
+def ensure_launch_stage(stages: list[Stage], name: str, flags: Flags, wait: str) -> None:
+    """Every guide needs a way out of 'works for me'. If the model gave no launch stage, add the honest minimum."""
+    if any(st.id != "build" and st.steps for st in stages):
+        return
+    if flags.partner_gated:
+        steps = [Step(title="Apply for partner or production access", who="you", evidence="uncertain",
+                      detail=f"{name} decides who gets access. Apply through its partner or developer program and "
+                             "expect questions about your use case."),
+                 Step(title="Wait for a decision", who="you", evidence="uncertain",
+                      detail=f"Expect: {wait}" if wait and wait != "unknown" else "There is no published timeline.")]
+    elif flags.review_for_production:
+        steps = [Step(title="Submit the app for review", who="you", evidence="uncertain",
+                      detail=f"Submit from {name}'s developer console once the app works end to end."),
+                 Step(title="Wait for the review", who="you", evidence="uncertain",
+                      detail=f"Expect: {wait}" if wait and wait != "unknown" else "There is no published timeline.")]
+    else:
+        steps = [Step(title="Make the app available outside your own account", who="you", minutes=5,
+                      evidence="uncertain",
+                      detail="Check the app's visibility or distribution setting (often called Public, Distribution "
+                             "or Publish). Many providers keep a new OAuth app private to your own workspace until "
+                             "you switch it."),
+                 Step(title="Connect an account from a different workspace", who="you", minutes=5,
+                      evidence="uncertain",
+                      detail="Sign in from an account outside your own org to confirm outside users can authorize it.")]
+    stages[:] = [st for st in stages if st.steps or st.id == "build"]
+    stages.append(Stage(id="launch", name="Go to production", steps=steps))
 
 
 def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict], probe_list: list[Probe],
@@ -343,7 +444,16 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     step_text = [f"{x.get('title', '')} {x.get('detail', '')}" for st in draft.get("stages") or [] if isinstance(st, dict)
                  for x in st.get("steps") or [] if isinstance(x, dict)]
     step_text += [f"{x.get('item', '')} {x.get('detail', '')}" for x in draft.get("requirements") or [] if isinstance(x, dict)]
-    restricted = is_google and needs_google_restricted(str(draft.get("use_case") or ""), step_text)
+    restricted = is_google and needs_google_restricted(str(draft.get("use_case") or ""), step_text, name)
+    # 2a. Google's 100-user Testing cap is a dev-mode limit, not an install cap (HubSpot's 25 is one). The model
+    #     sometimes copies it into both, which counts it twice. And brand verification is part of every Google
+    #     production review, so take it from the hand-checked facts, not the model: same rules, same score.
+    if flags.install_cap_before_review and flags.install_cap_before_review == flags.dev_mode_user_cap:
+        flags.install_cap_before_review = None
+    if is_google:
+        flags.install_cap_before_review = None
+        flags.dev_mode_user_cap = flags.dev_mode_user_cap or 100
+        flags.business_verification = bool(flags.review_for_production or restricted)
     known_days = [wait_days(f["claim"]) for f in facts if f.get("known") and f["topic"] == "timeline"]
     known_days = [x for x in known_days if x]
     wait = str(vt.get("wait") or "unknown")
@@ -382,7 +492,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
             continue
         stages.append(Stage(
             id=str(st.get("id") or f"stage{len(stages) + 1}"),
-            name=st.get("name") or "Stage",
+            name=st.get("name") or ("Build & test (works today)" if st.get("id") == "build" else "Go to production"),
             summary=st.get("summary") or "",
             limits=items(st.get("limits"), Note, ["text"]),
             steps=items(st.get("steps"), Step, ["title", "detail", "who", "minutes"]),
@@ -416,7 +526,9 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
             who="either", minutes=5, evidence="documented", sources=["c2"]))
     for st in stages:
         for x in st.steps:
-            if x.who in ("agent", "either") and re.search(r"\bwait|submit|sign up|pay|verify (?:your|the) (?:identity|business)|record", x.title, re.I):
+            if x.who in ("agent", "either") and (
+                    re.search(r"\bwait|submit|sign up|pay|verify (?:your|the) (?:identity|business)|record", x.title, re.I)
+                    or HUMAN_STEP.search(f"{x.title} {x.detail}")):
                 x.who = "you"
     managed, mnote, murl = composio
     if murl:
@@ -453,6 +565,8 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         for gx in draft.get("gotchas") or []:
             if isinstance(gx, dict):
                 gx["detail"] = fix(gx.get("detail", ""))
+    casa_sid = next((page_sid[f["url"]] for f in facts
+                     if f.get("known") and f["url"] in page_sid and SECURITY_RE.search(f["claim"])), None)
     if restricted:
         vt["gating_step"] = "Restricted-scope verification plus the yearly CASA security assessment"
         if not re.search(r"restricted|casa|security assessment", str(vt.get("summary") or ""), re.I):
@@ -460,24 +574,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
                              "means Google's restricted-scope verification and a CASA security assessment every year. "
                              "If your agent only touches files it creates or the user picks (drive.file), or only sends "
                              "mail (gmail.send), it's a 3-5 business day review instead.")
-        narrow_scope = re.compile(r"drive\.file|gmail\.send|narrow", re.I)
-        for st in stages:
-            for x in st.steps:
-                if re.search(r"scope", x.title, re.I) and narrow_scope.search(x.detail or ""):
-                    x.detail += (" That only covers the narrow path. To read or list the user's existing data you need a "
-                                 "restricted scope (e.g. drive.readonly, gmail.readonly), see 'Pick your path'.")
-        launch = next((st for st in stages if st.id != "build"), None)
-        casa_sid = next((page_sid[f["url"]] for f in facts
-                         if f.get("known") and f["url"] in page_sid and SECURITY_RE.search(f["claim"])), None)
-        if launch and not any(re.search(r"casa|security assessment", x.title, re.I) for x in launch.steps):
-            at = next((i for i, x in enumerate(launch.steps) if re.search(r"\bwait\b", x.title, re.I)), len(launch.steps))
-            launch.steps.insert(at, Step(
-                title="Complete the CASA security assessment",
-                detail="Restricted scopes need a CASA security assessment with one of Google's authorized labs. "
-                       "For most apps that means running a security scan and having the lab review the results. "
-                       "It repeats every year.",
-                who="you", evidence="documented" if casa_sid else "uncertain",
-                sources=[casa_sid] if casa_sid else []))
+        restricted_launch(stages, casa_sid)
     # Google: "Internal" only works inside a Workspace org (seen first-hand: greyed out on a personal account).
     if is_google:
         for st in stages:
@@ -502,6 +599,22 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     gotchas = items(draft.get("gotchas"), Gotcha, ["title", "detail", "severity"])
     blockers = items(draft.get("blockers"), Blocker, ["symptom", "cause", "fix"])
     paths = items(draft.get("paths"), PathOption, ["name", "when", "difficulty", "wait"]) + extra_paths
+    uncertainties = [str(u) for u in draft.get("uncertainties") or [] if not JUNK_UNCERTAIN.search(str(u))]
+    if restricted:
+        # The narrow scope is a real option (it's in 'Pick your path'), but steps that name only drive.file/gmail.send
+        # would walk someone down the no-audit path for a use case that can't work on it.
+        for x in [*(x for st in stages for x in st.steps), *requirements, *gotchas]:
+            if NARROW_SCOPE_RE.search(x.detail or "") and not RESTRICTED_SCOPE_RE.search(x.detail or ""):
+                x.detail = (x.detail or "").rstrip(" .") + ". " + NARROW_NOTE
+        # "If you ever request a restricted scope..." reads as optional when this use case needs one.
+        gotchas = [x for x in gotchas if not CONDITIONAL_SCOPE.search(f"{x.title} {x.detail}")]
+        uncertainties = [u for u in uncertainties if not CONDITIONAL_SCOPE.search(u)
+                         and not re.search(r"\b3\s*[-\u2010-\u2015]\s*5\b", u)]
+        for r in requirements:
+            r.detail = re.sub(r"\bsensitive (Drive |Gmail )?scope", "restricted scope", r.detail or "", flags=re.I)
+    ensure_launch_stage(stages, name, flags, vt.get("wait") or "")
+    # A stage the model returned with no steps renders as an empty heading; drop it.
+    stages = [st for st in stages if st.steps]
     used = {sid for coll in (requirements, gotchas, blockers, paths) for x in coll for sid in x.sources}
     used |= {sid for st in stages for x in [*st.limits, *st.steps] for sid in x.sources}
     # Only list pages that something on the guide actually cites. Probes and Composio pages always stay.
@@ -516,11 +629,6 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     for coll in (requirements, gotchas, blockers, paths, *[[*st.limits, *st.steps] for st in stages]):
         for x in coll:
             x.sources = [remap.get(sid, sid) for sid in x.sources]
-    uncertainties = [str(u) for u in draft.get("uncertainties") or [] if not JUNK_UNCERTAIN.search(str(u))]
-    if restricted:  # leftovers from the narrow-path reading ("may vary beyond the 3-5 day estimate")
-        uncertainties = [u for u in uncertainties if not re.search(r"\b3\s*[-\u2010-\u2015]\s*5\b", u)]
-        for r in requirements:
-            r.detail = re.sub(r"\bsensitive (Drive |Gmail )?scope", "restricted scope", r.detail or "", flags=re.I)
     uncertainties += extra_uncertain
     return Guide(
         # The name comes from the user's input, never the model (it once echoed prompt wording into the title).
@@ -588,7 +696,15 @@ async def _run(job: Job, llm: Groq, save) -> None:
     t0 = time.time()
     name, website = parse_input(job.query)
     stats = Stats()
-    notify = lambda msg: job.emit("log", text=msg)  # noqa: E731
+    last_wait = [0.0]
+
+    async def notify(msg: str):
+        # Parallel extractions each hit the capacity wait; one "waiting" line per 20s per run is plenty.
+        if msg.startswith("Waiting for free model capacity"):
+            if time.time() - last_wait[0] < 20:
+                return
+            last_wait[0] = time.time()
+        await job.emit("log", text=msg)
     if not llm.configured:
         raise LLMError("Server has no GROQ_API_KEY configured, so live generation is off.")
 
@@ -625,6 +741,9 @@ async def _run(job: Job, llm: Groq, save) -> None:
                 await job.emit("log", text=f"Could not read {u}")
                 continue
             p.official = is_official(p.url, official) if p.url != (website or None) else off
+            if not p.official and not about_app(name, p):
+                await job.emit("log", text=f"Skipped {u}: it's mostly about a different product")
+                continue
             p.snippets = await asyncio.to_thread(pick_snippets, p.text)
             if p.snippets:
                 pages.append(p)

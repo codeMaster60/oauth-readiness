@@ -69,12 +69,25 @@ async def discovery(domains: set[str], client: httpx.AsyncClient, primary: str =
     return [Probe(url=url, status=200, observed=obs)], doc
 
 
+DOCS_PATH = re.compile(r"/(?:docs?|developers?|guides?|reference|api-reference|help|blog|changelog)(?:/|$)", re.I)
+
+
+def looks_like_authorize(u: str) -> bool:
+    """A real authorize endpoint ends in /authorize (or /authorization, /auth). A docs page *about* authorization
+    (linear.app/developers/oauth-actor-authorization) is not one."""
+    host, _, path = re.sub(r"^https?://", "", u.split("?")[0]).partition("/")
+    if re.match(r"(?:docs|developers?|dev|help|support|blog)\.", host, re.I) or DOCS_PATH.search("/" + path):
+        return False
+    last = path.rstrip("/").rsplit("/", 1)[-1].lower()
+    return last in ("authorize", "authorization", "auth", "authorize.php") or last.endswith("authorize")
+
+
 def find_authorize_urls(texts: list[str], official: set[str]) -> list[str]:
     seen = []
     for t in texts:
         for m in AUTH_URL_RE.findall(t):
             u = m.rstrip(".,)")
-            if domain_of(u) in official and "authoriz" in u.lower() and u not in seen:
+            if domain_of(u) in official and looks_like_authorize(u) and u not in seen:
                 seen.append(u)
     return seen[:2]
 
