@@ -52,7 +52,7 @@ def test_full_run(monkeypatch):
     async def fake_composio(name, client):
         return "unknown", "No Composio toolkit page found under this name.", None
 
-    async def fake_discovery(domains, client):
+    async def fake_discovery(domains, client, primary=""):
         return [Probe(url="https://acme.com/.well-known/openid-configuration", status=200,
                       observed="Discovery document is live.")], {}
 

@@ -183,3 +183,9 @@ td.cite, .path .cite, .gotcha .cite, .blocker .cite, .limit .cite { margin-left:
   .top, .foot, .share, .toc, .why { display: none; }
   body { background: #fff; } .layout { display: block; }
 }
+
+/* accessibility + small screens */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.lookup button[disabled] { opacity: .6; cursor: progress; }
+a.btn { display: inline-block; text-decoration: none; }

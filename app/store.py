@@ -58,7 +58,7 @@ class Store:
 
 
 ALIASES = {
-    "google-gmail": ["gmail", "google", "google workspace", "gmail.com", "mail.google.com", "google mail"],
+    "google-gmail": ["gmail", "gmail.com", "mail.google.com", "google mail", "gmail api"],
     "github": ["github.com"],
     "slack": ["slack.com"],
     "notion": ["notion.so", "notion.com"],

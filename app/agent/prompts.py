@@ -57,6 +57,13 @@ no marketing words ("seamless", "robust", "leverage", "comprehensive"), no fille
 }
 Consistency: "review_for_production" is true only if users beyond a test group CANNOT connect until the provider
 approves the app. An optional marketplace/directory listing review does not count. "verdict.wait" must match the flags.
+Facts marked HAND-CHECKED were verified by a person; when they conflict with other facts, they win.
+"security_assessment" is true only if a fact names a third-party security assessment/audit (e.g. CASA) that applies
+to the scopes this use case needs. A provider's own app review is not a security assessment.
+Only suggest scopes that the use case needs; never suggest scopes for an unrelated product area.
+Every concrete setup action (creating the app, consent screen, redirect URL, scopes, credentials, test) goes in the
+build or launch steps, not only in agent_split. "uncertainties" are only things that would change the developer's
+plan (timelines, caps, costs, eligibility), never missing URLs or trivia.
 Rules: 4-7 build steps, 2-6 launch steps. The redirect/callback URL step must tell them to paste the Composio
 callback URL {redirect}. "agent" means an AI agent can do it (research, drafting justifications/privacy policy/
 demo script, filling config); "you" means a human must (sign up, accept terms, verify identity/business, pay,

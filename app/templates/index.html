@@ -8,8 +8,9 @@
     what's going to hold you up, and what you can hand off to an agent. Not in the library yet? An agent
     looks it up live. Takes a minute or two.</p>
   <form id="lookup" class="lookup" autocomplete="off">
-    <input id="q" name="q" placeholder="App name or website — e.g. Zoom, asana.com" required maxlength="200">
-    <button type="submit">Get the guide →</button>
+    <label for="q" class="sr-only">App name or website</label>
+    <input id="q" name="q" placeholder="App name or website, like Zoom or asana.com" required maxlength="200">
+    <button type="submit" id="go">Get the guide →</button>
   </form>
   <p class="hint" id="lookup-msg">
     {% if live %}The live agent is on.{% else %}<b>The live agent is off on this server</b> (no GROQ_API_KEY). The hand-checked guides still work.{% endif %}
@@ -71,15 +72,16 @@
     <h2>The 100</h2>
     <p>Where the library is headed. The ready ones open straight away. The rest are one click from a live run.</p>
   </div>
+  <label for="filter" class="sr-only">Filter the app list</label>
   <input id="filter" class="filter" placeholder="Filter {{ catalog|length }} apps…">
-  <table class="catalog" id="catalog">
+  <div class="table-wrap"><table class="catalog" id="catalog">
     <thead><tr><th>App</th><th>Category</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {% for r in catalog %}
-      <tr data-name="{{ r.name|lower }} {{ r.category|lower }}">
+      <tr data-name="{{ r.search }}">
         <td>{{ r.name }}</td><td class="muted">{{ r.category }}</td>
         {% if r.guide %}
-          <td><span class="tag ready">ready · {{ r.guide.verdict.difficulty }}/5</span></td>
+          <td><span class="tag ready">ready · difficulty {{ r.guide.verdict.difficulty }}/5</span></td>
           <td><a href="/guides/{{ r.guide.slug }}">Open →</a></td>
         {% else %}
           <td><span class="tag">not yet</span></td>
@@ -87,7 +89,8 @@
         {% endif %}
       </tr>
     {% endfor %}
+      <tr id="no-match" hidden><td colspan="4" class="muted">No apps match that. <a href="#" id="try-filter">Look it up live instead →</a></td></tr>
     </tbody>
-  </table>
+  </table></div>
 </section>
 {% endblock %}

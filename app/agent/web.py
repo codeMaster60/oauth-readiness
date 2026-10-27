@@ -56,6 +56,17 @@ def domain_of(url: str) -> str:
     return registrable(urlparse(url if "://" in url else f"https://{url}").netloc)
 
 
+def primary_domain(name: str, website: str, official: set[str]) -> str:
+    """The provider's main domain: the website if given, else the official domain that matches the name best."""
+    if website:
+        return domain_of(website)
+    token = re.sub(r"[^a-z0-9]", "", name.lower())
+    def rank(d):
+        base = re.sub(r"[^a-z0-9]", "", d.split(".")[0])
+        return (0 if token.startswith(base) or base.startswith(token) else 1, d.count("."), len(d))
+    return sorted(official, key=rank)[0] if official else ""
+
+
 def guess_official_domains(name: str, website: str, urls: list[str]) -> set[str]:
     """The app's own domain(s). Website wins; otherwise domains whose name contains the app token."""
     doms: set[str] = set()
@@ -126,7 +137,8 @@ async def fetch(url: str, client: httpx.AsyncClient) -> Optional[Page]:
         ctype = r.headers.get("content-type", "")
         body = r.text[:1_500_000]
         if "html" in ctype:
-            title, text = clean_html(body)
+            # BeautifulSoup on a big page is slow on a tiny server; don't block the event loop with it.
+            title, text = await asyncio.to_thread(clean_html, body)
         elif "text" in ctype or "markdown" in ctype or "json" in ctype:
             title, text = url, body
         else:

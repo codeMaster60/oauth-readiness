@@ -9,7 +9,7 @@
 
   <header class="verdict d{{ g.verdict.difficulty }}">
     <div class="v-main">
-      <p class="eyebrow">Getting a {{ g.name }} OAuth app ready for production{% if g.use_case %} — to {{ g.use_case }}{% endif %}</p>
+      <p class="eyebrow">Getting {{ g.name|a_an }} OAuth app ready for production{% if g.use_case %} — to {{ g.use_case }}{% endif %}</p>
       <h1>{{ g.name }}</h1>
       <div class="v-score">{{ pips(g.verdict.difficulty) }} <b>{{ g.verdict.difficulty }}/5</b> <span>{{ g.verdict.label }}</span></div>
       <p class="v-summary">{{ g.verdict.summary }}</p>
@@ -107,12 +107,12 @@
     {% if g.requirements %}
     <section id="requirements">
       <h2>Requirements</h2>
-      <table class="reqs">
+      <div class="table-wrap"><table class="reqs">
         {% for r in g.requirements %}
         <tr><td><b>{{ r.item }}</b>{% if r.detail %}<div class="muted">{{ r.detail }}</div>{% endif %}</td>
           <td><span class="tag">{{ r.when }}</span></td><td class="cite">{{ ev(g, r) }}</td></tr>
         {% endfor %}
-      </table>
+      </table></div>
     </section>
     {% endif %}
 
@@ -164,7 +164,7 @@
       <ol class="sources">
         {% for s in g.sources %}
         <li><span class="sid">{{ s.id }}</span> <a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title }}</a>
-          <span class="tag">{{ s.kind.replace('_', '-') }}</span>{% if s.accessed %}<span class="muted small"> accessed {{ s.accessed }}</span>{% endif %}</li>
+          <span class="tag">{{ s.kind.replace('_', '-') }}</span>{% if s.accessed %}<span class="muted small"> accessed <time datetime="{{ s.accessed }}" data-local-date>{{ s.accessed[:10] }}</time></span>{% endif %}</li>
         {% endfor %}
       </ol>
       {% if g.origin == 'generated' %}

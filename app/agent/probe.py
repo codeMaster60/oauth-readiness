@@ -18,6 +18,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
+from bs4 import BeautifulSoup
 
 from ..models import Probe
 from .web import UA, domain_of
@@ -26,10 +27,13 @@ FAKE_CLIENT = "oauth-readiness-probe-invalid"
 AUTH_URL_RE = re.compile(r"https://[\w.-]+/[\w/.\-]*(?:oauth2?|authorize|auth)[\w/.\-]*", re.I)
 
 
-async def discovery(domains: set[str], client: httpx.AsyncClient) -> tuple[list[Probe], Optional[dict]]:
+async def discovery(domains: set[str], client: httpx.AsyncClient, primary: str = "") -> tuple[list[Probe], Optional[dict]]:
+    """Try the provider's main domain first. Alphabetical order once picked cloud.google.com (a workforce
+    sign-in) over google.com, so order matters, and we also prefer a document whose issuer is that domain."""
+    ordered = ([primary] if primary else []) + [d for d in sorted(domains) if d != primary]
     cands = []
-    for d in sorted(domains)[:3]:
-        for sub in ("", "accounts.", "login.", "auth.", "api.", "oauth.", "id."):
+    for d in ordered[:3]:
+        for sub in ("accounts.", "", "login.", "auth.", "oauth.", "id.", "app.", "api."):
             cands.append(f"https://{sub}{d}/.well-known/openid-configuration")
 
     async def one(u):
@@ -44,7 +48,15 @@ async def discovery(domains: set[str], client: httpx.AsyncClient) -> tuple[list[
     results = [x for x in await asyncio.gather(*(one(u) for u in cands)) if x]
     if not results:
         return [], None
-    url, doc = results[0]
+
+    def trust(item):
+        u, doc = item
+        issuer = urlparse(str(doc.get("issuer", ""))).netloc
+        token_ep = str(doc.get("token_endpoint", ""))
+        bad = any(x in issuer for x in ("cloud.", "workforce", "sts.")) or "sts." in token_ep
+        return (0 if primary and domain_of(issuer) == primary else 1, 1 if bad else 0, cands.index(u))
+
+    url, doc = sorted(results, key=trust)[0]
     scopes = doc.get("scopes_supported") or []
     obs = (
         f"Discovery document is live. Authorization endpoint: {doc.get('authorization_endpoint')}; "
@@ -93,8 +105,10 @@ async def authorize_probe(url: str, client: httpx.AsyncClient) -> Probe:
         else:
             obs = f"Redirects to {host}{urlparse(loc).path} for an unknown client_id."
     else:
-        body = re.sub(r"<[^>]+>", " ", r.text or "")
-        body = " ".join(body.split())
+        soup = BeautifulSoup(r.text or "", "html.parser")
+        for tag in soup(["style", "script", "noscript", "svg"]):
+            tag.decompose()
+        body = " ".join(soup.get_text(" ").split())
         m = re.search(r"(invalid[_ ]\w+|unauthori[sz]ed[_ ]client|client[_ ]?id[^.]{0,80}|error[^.]{0,100})",
                       body, re.I)
         snippet = m.group(0)[:140] if m else body[:120]

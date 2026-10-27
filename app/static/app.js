@@ -2,19 +2,39 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
+let busy = false;
 async function startLookup(query, force = false) {
-  const msg = $("#lookup-msg");
+  const msg = $("#lookup-msg"), btn = $("#go");
+  if (busy) return;
+  busy = true;
+  const label = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Starting…"; }
+  if (msg) msg.textContent = "Starting… if the server was asleep this can take up to a minute.";
   try {
     const r = await fetch("/api/generate", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, force }),
     });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || "Request failed");
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Something went wrong. Try again in a moment.");
     location.href = d.existing || d.watch;
   } catch (e) {
+    busy = false;
+    if (btn) { btn.disabled = false; btn.textContent = label; }
     if (msg) msg.textContent = e.message; else alert(e.message);
   }
+}
+
+async function copyText(el, text, okLabel) {
+  const original = el.dataset.label || el.textContent;
+  el.dataset.label = original;
+  try {
+    await navigator.clipboard.writeText(text);
+    el.textContent = okLabel;
+  } catch (_) {
+    el.textContent = "Copy failed. Select it manually.";
+  }
+  setTimeout(() => { el.textContent = original; }, 2000);
 }
 
 $("#lookup")?.addEventListener("submit", (e) => { e.preventDefault(); startLookup($("#q").value); });
@@ -22,15 +42,34 @@ document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-try]");
   if (t) { e.preventDefault(); startLookup(t.dataset.try, !!t.dataset.force); }
   const c = e.target.closest("[data-copy]");
-  if (c) { navigator.clipboard.writeText(c.dataset.copy); c.textContent = "Copied"; }
+  if (c) copyText(c, c.dataset.copy, "Copied");
   const l = e.target.closest("[data-copy-link]");
-  if (l) { navigator.clipboard.writeText(location.href.split("#")[0]); l.textContent = "Link copied"; }
+  if (l) copyText(l, location.href.split("#")[0], "Link copied");
   if (e.target.closest("[data-print]")) window.print();
+  const tf = e.target.closest("#try-filter");
+  if (tf) { e.preventDefault(); startLookup($("#filter").value.trim()); }
 });
 
 $("#filter")?.addEventListener("input", (e) => {
-  const q = e.target.value.toLowerCase();
-  $$("#catalog tbody tr").forEach((tr) => { tr.hidden = !tr.dataset.name.includes(q); });
+  const q = e.target.value.trim().toLowerCase();
+  let shown = 0;
+  $$("#catalog tbody tr[data-name]").forEach((tr) => {
+    tr.hidden = !tr.dataset.name.includes(q);
+    if (!tr.hidden) shown++;
+  });
+  const none = $("#no-match");
+  if (none) none.hidden = shown > 0 || !q;
+});
+
+// Timestamps in the reader's own timezone (the server runs on UTC).
+$$("time[data-local], time[data-local-date]").forEach((t) => {
+  const v = t.getAttribute("datetime");
+  if (!v || !v.includes("T")) return; // plain dates (hand-checked guides) stay as written
+  const d = new Date(v);
+  if (isNaN(d)) return;
+  t.textContent = t.hasAttribute("data-local-date")
+    ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    : d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 });
 
 // Per-viewer checklist progress (convenience only; never required).
@@ -59,7 +98,8 @@ $("#filter")?.addEventListener("input", (e) => {
 
 // Live agent run viewer (Server-Sent Events).
 function watchJob(id) {
-  const steps = {}, started = Date.now();
+  const steps = {};
+  const started = Number($(".timer")?.dataset.started) || Date.now();
   const tick = setInterval(() => { $("#elapsed").textContent = ((Date.now() - started) / 1000).toFixed(1); }, 100);
   const li = (ul, html, cls = "") => { const x = document.createElement("li"); x.className = cls; x.innerHTML = html; $(ul).appendChild(x); x.scrollIntoView({ block: "nearest" }); return x; };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -94,11 +134,3 @@ function watchJob(id) {
   };
   es.onerror = () => { /* browser auto-reconnects; server replays from the start */ };
 }
-
-// Show timestamps in the reader's own timezone (the server runs on UTC).
-document.querySelectorAll("time[data-local]").forEach((t) => {
-  const v = t.getAttribute("datetime");
-  if (!v || !v.includes("T")) return; // plain dates (hand-checked guides) stay as written
-  const d = new Date(v);
-  if (!isNaN(d)) t.textContent = d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
-});

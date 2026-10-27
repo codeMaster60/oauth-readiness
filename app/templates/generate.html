@@ -6,7 +6,7 @@
   <h1>Researching <span class="q">{{ job.query }}</span></h1>
   <p class="lede">The agent is reading {{ job.query }}'s docs and poking at its live endpoints right now. Usually a
     minute or two on the free tier. You can share this page, it replays the run.</p>
-  <div class="timer"><span id="elapsed">0.0</span>s</div>
+  <div class="timer" data-started="{{ started_ms }}"><span id="elapsed">0.0</span>s</div>
   <ol id="steps" class="gen-steps"></ol>
   <div class="gen-cols">
     <div><h3>Pages it's reading</h3><ul id="sources" class="gen-sources"></ul></div>
@@ -15,4 +15,8 @@
   <div id="result" class="gen-result" hidden></div>
 </section>
 {% endblock %}
-{% block scripts %}<script>watchJob("{{ job.id }}");</script>{% endblock %}
+{% block scripts %}<script>
+  // If app.js was slow to arrive, try again rather than leaving a dead page.
+  if (window.watchJob) watchJob("{{ job.id }}");
+  else setTimeout(() => (window.watchJob ? watchJob("{{ job.id }}") : location.reload()), 1500);
+</script>{% endblock %}

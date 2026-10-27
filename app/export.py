@@ -7,6 +7,11 @@ EV = {"tested": "tested", "probed": "probed live", "documented": "from docs",
 WHO = {"you": "You", "agent": "Agent", "either": "You or agent"}
 
 
+def a_an(word: str) -> str:
+    """'an Asana', 'a GitHub'. Going by the first letter is good enough for app names."""
+    return f"{'an' if (word or ' ')[0].lower() in 'aeiou' else 'a'} {word}"
+
+
 def _cite(g: Guide, item) -> str:
     refs = []
     for sid in item.sources:
@@ -18,7 +23,7 @@ def _cite(g: Guide, item) -> str:
 
 def to_markdown(g: Guide, base_url: str = "") -> str:
     v = g.verdict
-    L = [f"# Getting a {g.name} OAuth app ready for production", ""]
+    L = [f"# Getting {a_an(g.name)} OAuth app ready for production", ""]
     if g.use_case:
         L.append(f"_Assumes you want to: {g.use_case}._")
         L.append("")

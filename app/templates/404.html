@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Not here yet · OAuth Readiness{% endblock %}
+{% block main %}
+<section class="hero">
+  <p class="eyebrow">404</p>
+  <h1>{% if guess %}No guide for "{{ guess }}" yet.{% else %}Nothing at this address.{% endif %}</h1>
+  {% if guess %}
+  <p class="lede">The agent can look it up live. It reads the provider's docs and writes a guide in a minute or two.</p>
+  <p><a href="#" class="btn" data-try="{{ guess }}">Generate it →</a> &nbsp; <a href="/">or go back to the library</a></p>
+  {% else %}
+  <p class="lede"><a href="/">Back to the library →</a></p>
+  {% endif %}
+</section>
+{% endblock %}

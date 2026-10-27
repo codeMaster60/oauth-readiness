@@ -19,7 +19,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import httpx
@@ -27,9 +27,10 @@ import httpx
 from ..models import (LABELS, AgentSplit, Blocker, ComposioInfo, Flags, Gotcha, Guide, Note, PathOption,
                       Probe, Requirement, Source, Stage, Stats, Step, Verdict, score)
 from . import probe as probes
+from .knowledge import known_pages
 from .llm import Groq, LLMError
 from .prompts import EXTRACT_SYSTEM, EXTRACT_USER, SYNTH_SYSTEM, SYNTH_USER
-from .web import (Page, domain_of, fetch, guess_official_domains, keep_url, pick_snippets, quote_on_page,
+from .web import (Page, domain_of, primary_domain, fetch, guess_official_domains, keep_url, pick_snippets, quote_on_page,
                   search)
 
 COMPOSIO_CALLBACK = "https://backend.composio.dev/api/v3/toolkits/auth/callback"
@@ -78,13 +79,36 @@ class Job:
 
 
 JOBS: dict[str, Job] = {}
+TASKS: set = set()  # strong refs so asyncio doesn't garbage-collect a running job
 _SEM = asyncio.Semaphore(2)  # free-tier quota: at most 2 generations at once
+MAX_JOBS = 300
+
+
+def _norm(q: str) -> str:
+    return re.sub(r"[^a-z0-9.]+", "", q.lower().removeprefix("https://").removeprefix("http://").removeprefix("www."))
+
+
+def running_job_for(query: str) -> Optional[Job]:
+    """If someone is already researching this app, watch that run instead of starting another."""
+    key = _norm(query)
+    return next((j for j in JOBS.values() if not j.done and _norm(j.query) == key), None)
 
 
 def new_job(query: str) -> Job:
+    now = time.time()
+    for jid in [j.id for j in JOBS.values() if j.done and now - j.started > 3600]:
+        JOBS.pop(jid, None)
+    while len(JOBS) >= MAX_JOBS:
+        JOBS.pop(next(iter(JOBS)))
     job = Job(id=uuid.uuid4().hex[:10], query=query)
     JOBS[job.id] = job
     return job
+
+
+def start(job: Job, llm, save) -> None:
+    task = asyncio.create_task(run(job, llm, save))
+    TASKS.add(task)
+    task.add_done_callback(TASKS.discard)
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +200,9 @@ def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> 
         seen.add(u)
         off = is_official(u, official)
         low = u.lower()
-        s = (10 if off else 0) + sum(2 for h in hints if h in low)
+        devish = any(k in low for k in ("developer", "docs", "/api", "api.", "oauth", "dev.", "/apps",
+                                         "integration", "platform", "help.", "/help", "support."))
+        s = ((10 if devish else 4) if off else 0) + sum(2 for h in hints if h in low)
         # Internal / server-to-server app types don't serve an agent's end users.
         s -= sum(6 for h in OFF_TOPIC if h in low)
         scored.append((s, u, r.get("title", ""), off))
@@ -200,21 +226,38 @@ def rank_urls(results: list[dict], official: set[str], first: Optional[str]) -> 
     return out
 
 
+SECURITY_RE = re.compile(r"\bCASA\b|security assessment|third[- ]party (?:security )?(?:assessment|audit)|"
+                         r"penetration test|pen[- ]?test|SOC ?2|letter of (?:validation|assessment)", re.I)
+JUNK_UNCERTAIN = re.compile(r"not provided|website url|url for|exact url|link to the", re.I)
+
+
+def wait_days(text: str) -> Optional[int]:
+    """Longest wait mentioned in free text, in calendar days ('3-5 business days' -> 7, '4-6 weeks' -> 42)."""
+    best = None
+    for m in re.finditer(r"(\d+)(?:\s*[-–to]+\s*(\d+))?\s*(business\s+days?|days?|weeks?|months?)", text or "", re.I):
+        n = int(m.group(2) or m.group(1))
+        unit = m.group(3).lower()
+        days = n * 30 if unit.startswith("month") else n * 7 if unit.startswith("week") else \
+            round(n * 1.4) if unit.startswith("business") else n
+        best = max(best or 0, days)
+    return best
+
+
 def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict], probe_list: list[Probe],
                 pages: list[Page], composio: tuple[str, str, Optional[str]], model: str, stats: Stats) -> Guide:
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     sources: list[Source] = []
     page_sid: dict[str, str] = {}
     for p in pages:
         sid = f"s{len(sources) + 1}"
         page_sid[p.url] = sid
         sources.append(Source(id=sid, title=p.title[:120], url=p.url,
-                              kind="official" if p.official else "third_party", accessed=str(date.today())))
+                              kind="official" if p.official else "third_party", accessed=stamp))
     probe_sid = {}
     for i, pr in enumerate(probe_list, 1):
         sid = f"p{i}"
         probe_sid[f"P{i}"] = sid
-        sources.append(Source(id=sid, title=f"Live probe: {pr.url}", url=pr.url, kind="probe",
-                              accessed=str(date.today())))
+        sources.append(Source(id=sid, title=f"Live probe: {pr.url}", url=pr.url, kind="probe", accessed=stamp))
     fact_by_id = {f["id"]: f for f in facts}
 
     def backing(refs) -> dict:
@@ -248,12 +291,33 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         return out
 
     flags = Flags(**{k: v for k, v in (draft.get("flags") or {}).items() if k in Flags.model_fields})
-    d, _ = score(flags)
     vt = dict(draft.get("verdict") or {})
-    # Keep the headline consistent with the rubric: if no review gates real users, the wait can't read "2-10 weeks".
+    extra_uncertain: list[str] = []
+    # 1. The audit point needs evidence: a model saying "security review" isn't a third-party assessment.
+    # (Hand-checked facts don't count here: Google's one mentions CASA precisely to say Calendar doesn't need it.)
+    if flags.security_assessment and not any(SECURITY_RE.search(f"{f['claim']} {f['quote']}")
+                                             for f in facts if not f.get("known")):
+        flags.security_assessment = False
+    # 2. Hand-checked timelines beat whatever the model wrote.
+    known_days = [wait_days(f["claim"]) for f in facts if f.get("known") and f["topic"] == "timeline"]
+    known_days = [x for x in known_days if x]
     wait = str(vt.get("wait") or "unknown")
-    if not flags.review_for_production and not flags.partner_gated and not wait.lower().startswith("none"):
-        vt["wait"] = "None to connect users" + ("" if wait.lower() in ("unknown", "") else f" (optional listing review: {wait})")
+    if known_days and flags.review_for_production and not flags.security_assessment:
+        flags.review_wait_days_max = max(known_days)
+        wait = f"About {max(known_days)} days, going by the provider's own published estimates"
+    # 3. Wait text and score must agree.
+    text_days = wait_days(wait)
+    if not flags.review_for_production and not flags.partner_gated:
+        if not wait.lower().startswith("none"):
+            wait = "None to connect users" + ("" if wait.lower() in ("unknown", "") else f" (optional listing review: {wait})")
+    elif text_days and flags.review_wait_days_max is None:
+        flags.review_wait_days_max = text_days
+    elif text_days and flags.review_wait_days_max and text_days > 2 * flags.review_wait_days_max:
+        extra_uncertain.append(f"Sources disagree on the wait: the docs suggest about {flags.review_wait_days_max} days, "
+                               f"but another source says {wait}.")
+        wait = f"About {flags.review_wait_days_max} days (sources disagree, see below)"
+    vt["wait"] = wait
+    d, _ = score(flags)
     stages = []
     for st in draft.get("stages") or []:
         if not isinstance(st, dict):
@@ -269,18 +333,49 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     if build is None:
         build = Stage(id="build", name="Build & test (works today)")
         stages.insert(0, build)
-    if not any(re.search(r"redirect|callback", f"{x.title} {x.detail}", re.I) for x in build.steps):
-        build.steps.insert(min(1, len(build.steps)), Step(
+    def has(pattern):
+        return any(re.search(pattern, f"{x.title} {x.detail}", re.I) for x in build.steps)
+
+    if not has(r"\bcreate\b|\bregister\b|new (?:oauth )?app|new client"):
+        build.steps.insert(0, Step(
+            title="Create the OAuth app",
+            detail=f"In {name}'s developer console, register a new user-authorized (authorization code) OAuth app.",
+            who="you", minutes=10, evidence="uncertain"))
+    if not has(r"redirect|callback"):
+        build.steps.insert(1, Step(
             title="Add the redirect (callback) URL",
             detail=f"In the app's OAuth settings, add Composio's callback URL: {COMPOSIO_CALLBACK}. It has to match exactly.",
             who="you", minutes=2, evidence="documented", sources=["c2"]))
+    if not has(r"composio|client id|client secret|credentials"):
+        build.steps.append(Step(
+            title="Put the client ID and secret into a Composio auth config",
+            detail="Create Auth Config, pick the toolkit, turn on your own developer credentials, paste both values.",
+            who="you", minutes=3, evidence="documented", sources=["c2"]))
+    if not has(r"\btest\b|connect (?:a|your)"):
+        build.steps.append(Step(
+            title="Connect a test account end to end",
+            detail="Run one real connection through your app and make a read-only call to check the token and scopes.",
+            who="either", minutes=5, evidence="documented", sources=["c2"]))
+    for st in stages:
+        for x in st.steps:
+            if x.who == "agent" and re.search(r"\bwait|submit|sign up|pay|verify (?:your|the) (?:identity|business)|record", x.title, re.I):
+                x.who = "you"
     managed, mnote, murl = composio
     if murl:
-        sources.append(Source(id="c1", title="Composio toolkit page", url=murl, kind="composio",
-                              accessed=str(date.today())))
+        sources.append(Source(id="c1", title="Composio toolkit page", url=murl, kind="composio", accessed=stamp))
     sources.append(Source(id="c2", title="Composio: managed vs custom auth",
                           url="https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app",
                           kind="composio"))
+    requirements = items(draft.get("requirements"), Requirement, ["item", "when", "detail"])
+    gotchas = items(draft.get("gotchas"), Gotcha, ["title", "detail", "severity"])
+    blockers = items(draft.get("blockers"), Blocker, ["symptom", "cause", "fix"])
+    paths = items(draft.get("paths"), PathOption, ["name", "when", "difficulty", "wait"])
+    used = {sid for coll in (requirements, gotchas, blockers, paths) for x in coll for sid in x.sources}
+    used |= {sid for st in stages for x in [*st.limits, *st.steps] for sid in x.sources}
+    # Only list pages that something on the guide actually cites. Probes and Composio pages always stay.
+    sources = [s for s in sources if s.kind in ("probe", "composio") or s.id in used]
+    uncertainties = [str(u) for u in draft.get("uncertainties") or [] if not JUNK_UNCERTAIN.search(str(u))]
+    uncertainties += extra_uncertain
     return Guide(
         # The name comes from the user's input, never the model (it once echoed prompt wording into the title).
         slug=slugify(name),
@@ -289,7 +384,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         category=draft.get("category") or "",
         use_case=draft.get("use_case") or "",
         origin="generated",
-        updated=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        updated=stamp,
         model=model,
         verdict=Verdict(
             difficulty=d, label=LABELS[d],
@@ -298,16 +393,16 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
         ),
         flags=flags,
         concept=draft.get("concept") or "",
-        paths=items(draft.get("paths"), PathOption, ["name", "when", "difficulty", "wait"]),
+        paths=paths,
         composio=ComposioInfo(managed=managed, managed_note=mnote, when_own_app=COMPOSIO_WHEN_OWN,
                               redirect_uri=COMPOSIO_CALLBACK),
         stages=stages,
-        requirements=items(draft.get("requirements"), Requirement, ["item", "when", "detail"]),
-        gotchas=items(draft.get("gotchas"), Gotcha, ["title", "detail", "severity"]),
-        blockers=items(draft.get("blockers"), Blocker, ["symptom", "cause", "fix"]),
+        requirements=requirements,
+        gotchas=gotchas,
+        blockers=blockers,
         agent_split=AgentSplit(**{k: [str(v) for v in (draft.get("agent_split") or {}).get(k, [])]
                                   for k in ("agent", "you")}),
-        uncertainties=[str(u) for u in draft.get("uncertainties") or []],
+        uncertainties=uncertainties,
         probes=probe_list,
         sources=sources,
         stats=stats,
@@ -315,7 +410,12 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
 
 
 async def run(job: Job, llm: Groq, save) -> None:
+    if _SEM.locked():
+        await job.emit("step", id="queue", status="running",
+                       label="Waiting for a free slot. The free tier runs two at a time, this usually takes under a minute.")
     async with _SEM:
+        if any(e.get("id") == "queue" for e in job.events):
+            await job.emit("step", id="queue", status="done", label="Got a slot, starting now")
         try:
             await _run(job, llm, save)
         except Exception as e:  # surface every failure to the UI
@@ -345,7 +445,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
         queries = [
             f"{name} developer OAuth app create client id redirect URI",
             f"{name} API OAuth 2.0 authorization documentation scopes",
-            f"{name} app review approval marketplace publish requirements",
+            f"{name} developer publish app review OAuth app listing requirements",
             f"{name} OAuth app verification rate limits unverified app",
         ]
         if website:
@@ -367,7 +467,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
                 await job.emit("log", text=f"Could not read {u}")
                 continue
             p.official = is_official(p.url, official) if p.url != (website or None) else off
-            p.snippets = pick_snippets(p.text)
+            p.snippets = await asyncio.to_thread(pick_snippets, p.text)
             if p.snippets:
                 pages.append(p)
                 await job.emit("source", url=p.url, title=p.title[:100], official=p.official)
@@ -379,7 +479,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
 
         # 4. Probes
         await job.emit("step", id="probe", label="Probing live OAuth endpoints (no account needed)", status="running")
-        probe_list, disc = await probes.discovery(official, client)
+        probe_list, disc = await probes.discovery(official, client, primary_domain(name, website, official))
         auth_urls = probes.find_authorize_urls([p.text for p in pages if p.official], official)
         if disc and disc.get("authorization_endpoint"):
             auth_urls.insert(0, disc["authorization_endpoint"])
@@ -404,14 +504,12 @@ async def _run(job: Job, llm: Groq, save) -> None:
             await job.emit("log", text=f"Skipped {p.url}: {e}")
             return []
         models_used.add(model)
-        out = []
-        for f in (data.get("facts") or [])[:10]:
-            if not isinstance(f, dict) or not f.get("claim"):
-                continue
-            ok = quote_on_page(f.get("quote", ""), p.text)
-            out.append({"topic": f.get("topic", "gotcha"), "claim": str(f["claim"])[:300],
-                        "quote": str(f.get("quote", ""))[:300], "url": p.url, "official": p.official,
-                        "verified": ok})
+        raw = [f for f in (data.get("facts") or [])[:10] if isinstance(f, dict) and f.get("claim")]
+        # Fuzzy quote matching is CPU work; keep it off the event loop so the site stays responsive.
+        oks = await asyncio.to_thread(lambda: [quote_on_page(str(f.get("quote", "")), p.text) for f in raw])
+        out = [{"topic": f.get("topic", "gotcha"), "claim": str(f["claim"])[:300],
+                "quote": str(f.get("quote", ""))[:300], "url": p.url, "official": p.official,
+                "verified": ok, "known": False} for f, ok in zip(raw, oks)]
         await job.emit("log", text=f"{len(out)} facts from {p.title[:60]} ({sum(x['verified'] for x in out)} quotes verified)")
         return out
 
@@ -423,8 +521,16 @@ async def _run(job: Job, llm: Groq, save) -> None:
 
     for chunk in await asyncio.gather(*(guarded(p) for p in pages)):
         facts.extend(chunk)
+    kp = known_pages(official, name)
+    if kp:
+        for p in kp:
+            pages.append(p)
+            for topic, claim, quote in p.known:
+                facts.append({"topic": topic, "claim": claim, "quote": quote, "url": p.url, "official": True,
+                              "verified": True, "known": True})
+        await job.emit("log", text=f"Added {sum(len(p.known) for p in kp)} hand-checked facts I already verified for this provider")
     # Prefer verified + official facts if we must trim to fit the synthesis budget.
-    facts.sort(key=lambda f: (not f["verified"], not f["official"]))
+    facts.sort(key=lambda f: (not f.get("known"), not f["verified"], not f["official"]))
     facts = facts[:45]
     for i, f in enumerate(facts, 1):
         f["id"] = f"F{i}"
@@ -439,7 +545,7 @@ async def _run(job: Job, llm: Groq, save) -> None:
     await job.emit("step", id="write", label="Writing the guide from verified facts", status="running")
     src_idx = {p.url: i for i, p in enumerate(pages, 1)}
     fact_lines = "\n".join(
-        f"{f['id']} | {f['topic']} | {'official' if f['official'] else '3rd-party'} s{src_idx[f['url']]}"
+        f"{f['id']} | {f['topic']} | {'HAND-CHECKED' if f.get('known') else 'official' if f['official'] else '3rd-party'} s{src_idx[f['url']]}"
         f"{'' if f['verified'] else ' (unverified)'} | {f['claim']}" for f in facts)
     probe_lines = "\n".join(f"P{i} | {p.url} | {p.observed}" for i, p in enumerate(probe_list, 1)) or "(none)"
     draft, model = await llm.json_call(

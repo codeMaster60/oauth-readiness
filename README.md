@@ -48,8 +48,9 @@ The part that catches people: connections stick to the app they were made with. 
 4. Pokes the real endpoints without logging in: the OpenID discovery file, and the actual login URL with a fake client ID, to see what error you'd hit.
 5. A small model pulls facts out of each page. Each fact needs a quote from that page.
 6. Code checks every quote is actually on the page. If it isn't, the claim gets marked `not verified`.
-7. A bigger model writes the guide from those facts only.
-8. The score comes from fixed rules, not the model.
+7. If I've already verified rules for this provider (Google, for now), those facts get added and win any conflict. A live "Google Calendar" guide shouldn't re-guess Google's review times from a blog.
+8. A bigger model writes the guide from those facts only.
+9. The score comes from fixed rules, not the model. A security audit only counts if a source actually names one.
 
 Two of those I care about more than the rest.
 
@@ -68,6 +69,7 @@ Honestly, the most useful part of this whole thing was doing instead of reading.
 - Slack's "From scratch" option is gone. It's "Blank app" now, followed by a four-step wizard that also installs the app.
 - Slack's own docs say 10 active workspaces before you can submit to the marketplace. A blog from this year says 5. I went with Slack.
 - Running my own agent on Zoom and Asana turned up five bugs in it: fact IDs leaking into sentences, a forum labelled official, server-to-server docs mixed into a user-login guide, a weird title, and a wait time that contradicted the score. All fixed, all covered by tests now.
+- Then I had the whole site reviewed end to end by a pass that only hunted for problems. The worst ones: the server could stall while parsing big pages, the Google Calendar guide probed the wrong Google endpoint, and it billed Calendar for an audit that only applies to Gmail-style scopes. Fixed, and each one has a regression test.
 
 The full list, with sources, is on `/evidence`.
 
@@ -79,7 +81,7 @@ pip install -r requirements.txt
 cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 20 tests, no network needed
+pytest -q                       # 34 tests, no network needed
 ```
 
 No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.
@@ -93,7 +95,8 @@ No Groq key? The six hand-checked guides still work, and the live agent just tel
 ## Where it falls short
 
 - Live guides are a good first draft, not gospel. They're only as good as what search turns up, and docs behind a login come out thin.
-- Free-tier models are slow-ish, so a live run is a minute or two and only two run at once.
+- Free-tier models are slow-ish, so a live run is a minute or two and only two run at once. A third person sees "waiting for a free slot" instead of a blank page.
+- To keep the free quota alive, each visitor gets 5 live runs per 10 minutes and the site caps at 80 a day.
 - Live scores can wobble between runs when a provider's docs are vague. Asana went 3/5, then 2/5. It's written up on `/evidence` rather than hidden.
 - Render's free plan forgets generated guides on redeploy. The hand-checked ones live in the repo.
 - "Tested" means I clicked through it. I didn't submit anything for real review, so review timelines come from docs, not experience.

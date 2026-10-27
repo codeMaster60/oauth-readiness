@@ -8,13 +8,13 @@
 
   <h2 id="legend">How to read the tags</h2>
   <p>Every claim on every guide carries one of these. It's the first thing I'd want to know before trusting a step.</p>
-  <table class="legend">
+  <div class="table-wrap"><table class="legend">
     <tr><td><span class="ev ev-tested">{{ EV.tested }}</span></td><td>I actually did this in the provider's console while building this. Notes below.</td></tr>
     <tr><td><span class="ev ev-probed">{{ EV.probed }}</span></td><td>The agent hit the provider's real endpoint, no login, and wrote down what happened.</td></tr>
     <tr><td><span class="ev ev-documented">{{ EV.documented }}</span></td><td>The provider's own docs say so. For generated guides, the quote was found word for word on the page.</td></tr>
     <tr><td><span class="ev ev-third_party">{{ EV.third_party }}</span></td><td>Only someone else says it. A blog, a vendor, a forum. Probably right, not guaranteed.</td></tr>
     <tr><td><span class="ev ev-uncertain">{{ EV.uncertain }}</span></td><td>Inferred, contradicted somewhere, or the "quote" wasn't on the page. Check before you rely on it.</td></tr>
-  </table>
+  </table></div>
 
   <h2 id="attempts">What happened when I tried it</h2>
   {% for a in v.attempts %}
@@ -26,7 +26,7 @@
   {% endfor %}
 
   <h2 id="checks">Claims I checked, and how they held up</h2>
-  <table class="checks">
+  <div class="table-wrap"><table class="checks">
     <thead><tr><th>Claim</th><th>Result</th><th>What I found</th><th>Source</th></tr></thead>
     {% for c in v.checks %}
     <tr><td>{{ c.claim }}<div class="muted small">{{ c.app }}</div></td>
@@ -34,14 +34,14 @@
       <td>{{ c.finding }}</td>
       <td>{% for s in c.sources %}<a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title }}</a><br>{% endfor %}</td></tr>
     {% endfor %}
-  </table>
+  </table></div>
 
   <h2 id="learned">What I learned, and what I changed because of it</h2>
   <ul>{% for l in v.learned %}<li>{{ l }}</li>{% endfor %}</ul>
 
   <h2 id="rubric">How the score works</h2>
   <p>The model never picks the number. It pulls facts out of the docs, and these rules turn them into a 1 to 5. Same facts, same score, every time.</p>
-  <table class="legend">
+  <div class="table-wrap"><table class="legend">
     <tr><td>Base</td><td>1 point (create the app)</td></tr>
     <tr><td>Provider review before real users / scale</td><td>+1</td></tr>
     <tr><td>Review can take 10+ days</td><td>+1 (and +0.5 more if 30+ days)</td></tr>
@@ -50,7 +50,7 @@
     <tr><td>Partner-gated or discretionary access</td><td>+2</td></tr>
     <tr><td>Paid plan or fee required</td><td>+1</td></tr>
     <tr><td>Install cap until reviewed</td><td>+0.5</td></tr>
-  </table>
+  </table></div>
   <p>Rounded, clamped to 1–5. Labels: {% for k, l in labels.items() %}<b>{{ k }}</b> {{ l }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
 
   <h2 id="agent">What the live agent actually does</h2>
