@@ -32,10 +32,16 @@
     },
     {
       "app": "Google Cloud (Gmail)",
-      "status": "pending",
-      "what": "New project → Google Auth Platform → add gmail.readonly → inspect Audience and the publish flow (without publishing).",
+      "status": "done",
+      "what": "Personal Google account: new project, Gmail API enabled, Google Auth Platform configured as External, Gmail scopes added. Not published. 2026-10-28.",
       "observed": [
-        "Not yet run."
+        "The new project sits in “No organization” (personal account), so the Audience page's “Make internal” button is disabled. External is the only option.",
+        "Data Access → “Add or remove scopes” lists only scopes for enabled APIs; Gmail scopes had to be pasted under “Manually add scopes” → Add to table → Update.",
+        "Classification shown by Google: gmail.readonly under “Your restricted scopes” (Gmail scopes); gmail.send under “Your sensitive scopes”. This confirms the send-only vs read path split in the guide.",
+        "Audience → Publishing status: “Testing”. “Publish app” is greyed out with “To publish your app, you must complete your configuration on the Branding page.”",
+        "OAuth user cap: “Allowed user cap prior to app verification is 100, and is counted over the entire lifetime of the app”, shown as a meter: 0 users (0 test, 0 other) / 100 user cap.",
+        "No billing or free-trial signup was needed for any of this.",
+        "Total time: about 20 minutes (most of it finding the right screens)."
       ]
     }
   ],
@@ -65,6 +71,38 @@
         {
           "title": "Setup attempt (this project)",
           "url": "/evidence#attempts"
+        }
+      ]
+    },
+    {
+      "app": "Google",
+      "claim": "gmail.readonly is restricted; gmail.send is only sensitive.",
+      "result": "confirmed",
+      "finding": "Confirmed in a real Cloud Console project: Google itself sorted gmail.readonly under “restricted” and gmail.send under “sensitive”. That's the difference between weeks plus a CASA audit and a few days of review.",
+      "sources": [
+        {
+          "title": "Setup attempt (this project)",
+          "url": "/evidence#attempts"
+        },
+        {
+          "title": "Google: Restricted scope verification",
+          "url": "https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification"
+        }
+      ]
+    },
+    {
+      "app": "Google",
+      "claim": "The 100-user cap for unverified apps is lifetime and can't be reset.",
+      "result": "confirmed",
+      "finding": "The Audience page states it directly and shows a usage meter.",
+      "sources": [
+        {
+          "title": "Setup attempt (this project)",
+          "url": "/evidence#attempts"
+        },
+        {
+          "title": "Manage App Audience",
+          "url": "https://support.google.com/cloud/answer/15549945"
         }
       ]
     },
