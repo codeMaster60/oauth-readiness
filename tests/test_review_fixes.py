@@ -340,8 +340,8 @@ def test_restricted_launch_runs_submit_casa_wait_publish():
     g = build_guide("Google Drive", "", draft, _known_google(), [], _drive_pages(), ("yes", "", None), "m", Stats())
     launch = next(st for st in g.stages if st.id == "launch")
     titles = [x.title for x in launch.steps]
-    assert titles == ["Update branding", "Submit for restricted-scope verification", "Complete CASA",
-                      "Wait for Google's review", "Switch to Production"]
+    assert titles == ["Update branding", "Switch to Production", "Submit for restricted-scope verification",
+                      "Complete CASA", "Wait for Google's review"]
     assert not any("no further caps" in x.detail.lower() for st in g.stages for x in st.steps)
     build = next(st for st in g.stages if st.id == "build")
     assert narrow_note("Google Drive") in next(x for x in build.steps if x.title == "Configure consent screen").detail
@@ -433,9 +433,17 @@ def test_duplicate_submit_steps_merge_and_videos_are_people_work():
                  {"title": "Submit for review", "detail": "Use the console to submit.", "refs": []}]}]}
     g = build_guide("Google Drive", "", draft, _known_google(), [], _drive_pages(), ("yes", "", None), "m", Stats())
     titles = [x.title for x in next(st for st in g.stages if st.id == "launch").steps]
-    assert titles[:3] == ["Complete OAuth verification", "Complete the CASA security assessment", "Wait for Google's review"]
+    assert titles == ["Switch the app to In production", "Complete OAuth verification",
+                      "Complete the CASA security assessment", "Wait for Google's review"]
     assert g.agent_split.agent == ["prepare demo script"]
     sheets = {"flags": {"review_for_production": True}, "verdict": {},
               "uncertainties": ["Exact review duration beyond 72 hours"]}
     gs = build_guide("Google Sheets", "", sheets, _known_google()[:1], [], [], ("yes", "", None), "m", Stats())
     assert not any("72 hours" in u for u in gs.uncertainties)
+
+
+def test_non_breaking_hyphen_auth_flow_is_people_work():
+    draft = {"flags": {}, "verdict": {}, "stages": [{"id": "build", "steps": [
+        {"title": "Run authorization\u2011code flow", "detail": "Use the URL.", "who": "either", "refs": []}]}]}
+    g = _guide(draft)
+    assert next(x for x in g.stages[0].steps if x.title.startswith("Run")).who == "you"

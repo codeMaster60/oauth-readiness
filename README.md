@@ -83,7 +83,7 @@ pip install -r requirements.txt
 cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 54 tests, no network needed
+pytest -q                       # 55 tests, no network needed
 ```
 
 No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.

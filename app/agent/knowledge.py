@@ -35,6 +35,9 @@ KNOWN: dict[str, dict] = {
              "Projects associated with a Google Cloud Organization can configure Internal users to limit authorization "
              "requests to members of the organization.",
              "https://support.google.com/cloud/answer/15549945"),
+            ("review", "Switch the publishing status to In production first, then submit the app for verification.",
+             "Publishing status: Transition to In production.",
+             "https://developers.google.com/data-manager/api/devguides/concepts/oauth-verification"),
             ("dev_limits", "In Testing mode, test users' authorizations and refresh tokens expire after 7 days.",
              "Authorizations by a test user will expire seven days from the time of consent.",
              "https://support.google.com/cloud/answer/15549945"),
@@ -47,6 +50,7 @@ TITLES = {
     "https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification": "sensitive scope verification",
     "https://support.google.com/cloud/answer/13465431": "security assessment (CASA)",
     "https://support.google.com/cloud/answer/15549945": "app audience, test users and caps",
+    "https://developers.google.com/data-manager/api/devguides/concepts/oauth-verification": "order: production, then verification",
 }
 
 FAMILY_ALIASES = {"googleapis.com": "google.com", "youtube.com": "google.com", "gmail.com": "google.com"}

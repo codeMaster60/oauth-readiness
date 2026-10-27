@@ -278,7 +278,7 @@ def wait_days(text: str) -> Optional[int]:
 
 HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
                         r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b|grant(?:s|ing)? consent|log(?:s|ging)? in as|"
-                        r"authori[sz]ation[- ]code flow|\bauth(?:orization)? flow\b|"
+                        r"authori[sz]ation[-\u2010-\u2015 ]code flow|\bauth(?:orization)? flow\b|"
                         r"\b(?:make|prepare|create|film|shoot|produce)\b[^.]*\bvideo\b", re.I)
 
 
@@ -291,7 +291,7 @@ def split_work(raw: dict) -> AgentSplit:
 
 
 HUMAN_STEP = re.compile(r"grant(?:s|ing)? consent|clicks? (?:allow|accept)|log(?:s|ging)? in as|sign(?:s|ing)? in as|"
-                        r"authori[sz]ation[- ]code flow", re.I)
+                        r"authori[sz]ation[-\u2010-\u2015 ]code flow|\b(?:run|test)\b[^.]*\bauth(?:orization)? flow\b", re.I)
 NARROW_SCOPE_RE = re.compile(r"drive\.file|gmail\.send", re.I)
 def narrow_note(name: str) -> str:
     scope = "gmail.readonly" if "gmail" in name.lower() or "mail" in name.lower() else "drive.readonly"
@@ -303,14 +303,16 @@ STALE_CAP = re.compile(r"no (?:further|more|other) (?:user )?(?:caps?|limits?)|a
                        r"(?:authori[sz]e|sign in|connect|use)|remove (?:the )?test[- ]user (?:limit|cap)", re.I)
 
 
-def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
-    """Restricted Google scopes always go: submit -> CASA -> wait (weeks) -> switch to production. Models often skip
-    the review steps or put CASA after 'publish', and some claim publishing lifts every cap. Rebuild the order."""
+def restricted_launch(stages: list[Stage], casa_sid: Optional[str], prod_sid: Optional[str] = None) -> None:
+    """Restricted Google scopes always go: switch to In production -> submit -> CASA -> wait (weeks) -> any listing.
+    Google only takes production apps for verification. Models often skip the review steps, put CASA after
+    'publish', or claim publishing lifts every cap. Rebuild the order."""
     launch = next((st for st in stages if st.id != "build"), None)
     if launch is None:
         launch = Stage(id="launch", name="Go to production")
         stages.append(launch)
     cite = {"evidence": "documented", "sources": [casa_sid]} if casa_sid else {"evidence": "uncertain"}
+    cite_prod = {"evidence": "documented", "sources": [prod_sid]} if prod_sid else {"evidence": "uncertain"}
     steps = [x for x in launch.steps if not STALE_CAP.search(f"{x.title} {x.detail}")]
 
     def kind(x: Step) -> str:
@@ -323,14 +325,20 @@ def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
             return "submit"
         if re.search(r"brand|logo|privacy|website|domain|demo|video|justif|asset", x.title, re.I):
             return "prep"  # review material always comes before submitting, wherever the model put it
-        if re.search(r"publish|production|go live|switch|launch|marketplace|listing", x.title, re.I):
-            return "publish"
+        if re.search(r"marketplace|listing|directory", x.title, re.I):
+            return "listing"
+        if re.search(r"publish|production|go live|switch|launch", x.title, re.I):
+            return "golive"
         return "other"
     kinds = [kind(x) for x in steps]
     first = next((i for i, k in enumerate(kinds) if k not in ("other", "prep")), len(steps))
     of = lambda k: [x for x, kk in zip(steps, kinds) if kk == k]  # noqa: E731
     prep = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "prep" or (k == "other" and i < first)]
     tail = [x for i, (x, k) in enumerate(zip(steps, kinds)) if k == "other" and i >= first]
+    golive = of("golive")[:1] or [Step(title="Switch the app to In production", who="you", minutes=2, **cite_prod)]
+    golive[0].detail = ("On the Audience page, set the publishing status to In production. Google only verifies "
+                        "production apps, so this comes before submitting. Until verification passes, users see the "
+                        "unverified-app warning and new sign-ups are capped.")
     submit = of("submit")
     if len(submit) > 1:  # "Complete OAuth verification: Submit..." and "Submit for review" are one step
         keep = submit[0]
@@ -355,11 +363,7 @@ def restricted_launch(stages: list[Stage], casa_sid: Optional[str]) -> None:
         x.detail = ("Expect several weeks. Google publishes no fixed time for restricted scopes, and the CASA "
                     "assessment runs on the assessor's schedule. Watch for follow-up emails from Google and answer "
                     "them quickly.")
-    publish = of("publish") or [Step(
-        title="Switch the app to In production", who="you", minutes=2, evidence="uncertain",
-        detail="On the Audience page, click Publish app once verification is approved. Before that, users outside "
-               "your test list see the unverified-app warning and new sign-ups are capped.")]
-    launch.steps = prep + submit + casa + wait + publish + tail
+    launch.steps = prep + golive + submit + casa + wait + of("listing") + tail
 
 
 def ensure_launch_stage(stages: list[Stage], name: str, flags: Flags, wait: str) -> None:
@@ -589,7 +593,9 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
                              "means Google's restricted-scope verification and a CASA security assessment every year. "
                              "If your agent only touches files it creates or the user picks (drive.file), or only sends "
                              "mail (gmail.send), it's a 3-5 business day review instead.")
-        restricted_launch(stages, casa_sid)
+        prod_sid = next((page_sid[f["url"]] for f in facts if f.get("known") and f["url"] in page_sid
+                         and "In production first" in f["claim"]), None)
+        restricted_launch(stages, casa_sid, prod_sid)
     # Google: "Internal" only works inside a Workspace org (seen first-hand: greyed out on a personal account).
     if is_google:
         for st in stages:
