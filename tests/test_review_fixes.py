@@ -273,7 +273,38 @@ def test_durations_inside_the_guide_agree_with_the_headline():
                  {"title": "Wait for verification", "detail": "Google reviews the request (24-72 hours).", "refs": []}]}]}
     g = build_guide("Google Drive", "", draft, _known_google(), [], pages, ("yes", "", None), "m", Stats())
     launch = next(st for st in g.stages if st.id == "launch")
-    assert "72 hours" not in launch.steps[0].detail and "several weeks" in launch.steps[0].detail
+    wait = next(x for x in launch.steps if x.title.startswith("Wait"))
+    assert "72 hours" not in wait.detail and "several weeks" in wait.detail.lower()
     assert "CASA" in g.verdict.gating_step
     build = next(st for st in g.stages if st.id == "build")
     assert any("Workspace org" in x.detail for x in build.steps)
+
+
+def test_restricted_guide_does_not_sell_the_narrow_path_as_the_answer():
+    from app.agent.web import Page
+    pages = [Page(url=f["url"], title="t", text="q", official=True) for f in _known_google()]
+    draft = {"use_case": "read and write files", "flags": {"review_for_production": True},
+             "verdict": {"summary": "You must pass verification for the drive.file scope."},
+             "stages": [{"id": "build", "steps": [
+                 {"title": "Declare scopes", "detail": "Request the drive.file scope.", "refs": []}]},
+                 {"id": "launch", "steps": [
+                 {"title": "Wait for verification outcome", "detail": "Google responds within 24\u201172 hours.", "refs": []}]}]}
+    g = build_guide("Google Drive", "", draft, _known_google(), [], pages, ("yes", "", None), "m", Stats())
+    assert "restricted" in g.verdict.summary and "CASA" in g.verdict.summary
+    build = next(st for st in g.stages if st.id == "build")
+    assert any("drive.readonly" in x.detail for x in build.steps if x.title == "Declare scopes")
+    launch = next(st for st in g.stages if st.id == "launch")
+    titles = [x.title for x in launch.steps]
+    assert titles.index("Complete the CASA security assessment") < titles.index("Wait for verification outcome")
+    assert all("hours" not in x.detail and "24" not in x.detail for x in launch.steps)
+    casa = next(x for x in launch.steps if "CASA" in x.title)
+    assert casa.sources and casa.sources[0] in {s.id for s in g.sources}
+
+
+def test_non_breaking_hyphen_durations_are_rewritten():
+    draft = {"flags": {"review_for_production": True, "review_wait_days_max": 30}, "verdict": {},
+             "stages": [{"id": "build", "steps": []}, {"id": "launch", "steps": [
+                 {"title": "Wait for review", "detail": "Review takes 24\u201172 hours.", "refs": []}]}]}
+    g = build_guide("Acme", "", draft, [], [], [], ("yes", "", None), "m", Stats())
+    d = next(st for st in g.stages if st.id == "launch").steps[0].detail
+    assert d == "Review takes about 30 days."

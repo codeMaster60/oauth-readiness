@@ -429,24 +429,55 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     target = flags.review_wait_days_max
     if target:
         short = "several weeks" if restricted else ("about a week" if target <= 10 else f"about {target} days")
-        dur = re.compile(r"\b\d+\s*(?:[-–]|to)\s*\d+\s*(?:business\s+)?(?:hours?|days?|weeks?)|\b\d+\s*(?:business\s+)?(?:hours?|days?|weeks?)", re.I)
+        dash = r"[-‐-―]"  # models love non-breaking hyphens ("24‑72 hours")
+        unit = r"(?:business\s+)?(?:hours?|days?|weeks?)"
+        dur = re.compile(rf"\b\d+\s*(?:{dash}|to)\s*(?:\d+|several|a few)\s*{unit}|\b\d+\s*{unit}", re.I)
 
         def fix(text):
             if not text:
                 return text
-            days = wait_days(text) or (1 if re.search(r"\d+\s*(?:[-–]|to)?\s*\d*\s*hours?", text, re.I) else None)
+            text = re.sub(dash, "-", text)
+            days = wait_days(text) or (1 if re.search(r"\d+\s*(?:-|to)?\s*\d*\s*hours?", text, re.I) else None)
             if days and (days * 2 < target or days > target * 2) and re.search(r"review|verif|approv|wait", text, re.I):
                 return dur.sub(short, text, count=1)
             return text
         for st in stages:
             for x in st.steps:
-                if re.search(r"wait|review|verif", x.title, re.I):
+                if restricted and re.search(r"\bwait\b", x.title, re.I):
+                    # Sub-estimates ("brand 2-3 days, sensitive 3-5 days") only confuse a weeks-long restricted review.
+                    x.detail = ("Expect several weeks. Google publishes no fixed time for restricted scopes, and the CASA "
+                                "assessment runs on the assessor's schedule. Watch for follow-up emails from Google and "
+                                "answer them quickly.")
+                elif re.search(r"wait|review|verif", x.title, re.I):
                     x.detail = fix(x.detail)
         for gx in draft.get("gotchas") or []:
             if isinstance(gx, dict):
                 gx["detail"] = fix(gx.get("detail", ""))
     if restricted:
         vt["gating_step"] = "Restricted-scope verification plus the yearly CASA security assessment"
+        if not re.search(r"restricted|casa|security assessment", str(vt.get("summary") or ""), re.I):
+            vt["summary"] = (f"Doable, but slow. Reading a user's existing {name} data needs a restricted scope, which "
+                             "means Google's restricted-scope verification and a CASA security assessment every year. "
+                             "If your agent only touches files it creates or the user picks (drive.file), or only sends "
+                             "mail (gmail.send), it's a 3-5 business day review instead.")
+        narrow_scope = re.compile(r"drive\.file|gmail\.send|narrow", re.I)
+        for st in stages:
+            for x in st.steps:
+                if re.search(r"scope", x.title, re.I) and narrow_scope.search(x.detail or ""):
+                    x.detail += (" That only covers the narrow path. To read or list the user's existing data you need a "
+                                 "restricted scope (e.g. drive.readonly, gmail.readonly), see 'Pick your path'.")
+        launch = next((st for st in stages if st.id != "build"), None)
+        casa_sid = next((page_sid[f["url"]] for f in facts
+                         if f.get("known") and f["url"] in page_sid and SECURITY_RE.search(f["claim"])), None)
+        if launch and not any(re.search(r"casa|security assessment", x.title, re.I) for x in launch.steps):
+            at = next((i for i, x in enumerate(launch.steps) if re.search(r"\bwait\b", x.title, re.I)), len(launch.steps))
+            launch.steps.insert(at, Step(
+                title="Complete the CASA security assessment",
+                detail="Restricted scopes need a CASA security assessment with one of Google's authorized labs. "
+                       "For most apps that means running a security scan and having the lab review the results. "
+                       "It repeats every year.",
+                who="you", evidence="documented" if casa_sid else "uncertain",
+                sources=[casa_sid] if casa_sid else []))
     # Google: "Internal" only works inside a Workspace org (seen first-hand: greyed out on a personal account).
     if is_google:
         for st in stages:
