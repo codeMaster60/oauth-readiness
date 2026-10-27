@@ -9,7 +9,7 @@ It's on Render's free plan, so if nobody's opened it in a while the first load t
 
 ## What's in here
 
-- **Six guides I checked by hand.** GitHub, Notion, LinkedIn, Slack, HubSpot, Gmail. Picked on purpose so they cover the whole range, from "done in ten minutes" to "you might never get approved".
+- **Six guides I checked by hand.** GitHub, Notion, LinkedIn, Slack, HubSpot, Gmail. Picked on purpose so they cover the whole range, from "done in ten minutes" to "weeks, plus a paid audit every year".
 - **A live agent for everything else.** Type any app, watch it read the provider's docs, poke at its real login endpoints, and write a guide in a minute or two.
 - **Every claim says how I know it:** `tested`, `probed live`, `from docs`, `third-party`, or `not verified`.
 - **Every guide is shareable.** A link, plus Markdown and JSON so your own coding agent can read it.
@@ -70,6 +70,7 @@ Honestly, the most useful part of this whole thing was doing instead of reading.
 - Slack's own docs say 10 active workspaces before you can submit to the marketplace. A blog from this year says 5. I went with Slack.
 - Running my own agent on Zoom and Asana turned up five bugs in it: fact IDs leaking into sentences, a forum labelled official, server-to-server docs mixed into a user-login guide, a weird title, and a wait time that contradicted the score. All fixed, all covered by tests now.
 - Then I had the whole site reviewed end to end by a pass that only hunted for problems. The worst ones: the server could stall while parsing big pages, the Google Calendar guide probed the wrong Google endpoint, and it billed Calendar for an audit that only applies to Gmail-style scopes. Fixed, and each one has a regression test.
+- A second review of the fixed site caught two more: two live runs at once could make the agent give up while it was only waiting its turn, and the Google Drive guide said "about a week" when listing someone's files needs a restricted scope and a yearly paid audit. Both fixed and tested too.
 
 The full list, with sources, is on `/evidence`.
 
@@ -81,7 +82,7 @@ pip install -r requirements.txt
 cp .env.example .env            # put your GROQ_API_KEY in (free: https://console.groq.com/keys)
 export $(grep -v '^#' .env | xargs)
 uvicorn app.main:app --reload   # http://localhost:8000
-pytest -q                       # 34 tests, no network needed
+pytest -q                       # 42 tests, no network needed
 ```
 
 No Groq key? The six hand-checked guides still work, and the live agent just tells you it's off.

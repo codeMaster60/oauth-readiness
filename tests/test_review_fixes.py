@@ -27,7 +27,7 @@ def test_hand_checked_timeline_beats_third_party_weeks():
     known = [{"id": "F1", "topic": "timeline", "claim": "Sensitive scope verification typically takes 3-5 business days.",
               "quote": "q", "url": "u", "official": True, "verified": True, "known": True}]
     g = _guide({"flags": {"review_for_production": True}, "verdict": {"wait": "4-6 weeks"}}, known)
-    assert "7 days" in g.verdict.wait and g.flags.review_wait_days_max == 7
+    assert "3-5 business days (about a week)" in g.verdict.wait and g.flags.review_wait_days_max == 7
 
 
 def test_wait_text_feeds_score_when_model_left_days_empty():
@@ -120,7 +120,7 @@ def test_web_routes_404_rate_limit_and_dedup(monkeypatch):
     assert "too long" in c.post("/api/generate", json={"query": "x" * 201}).json()["detail"]
 
     started = []
-    monkeypatch.setattr(main.pipeline, "start", lambda job, llm, save: started.append(job))
+    monkeypatch.setattr(main.pipeline, "start", lambda job, llm, save, on_fail=None: started.append(job))
     monkeypatch.setattr(main, "PER_IP_LIMIT", 2)
     main._ip_runs.clear()
     a = c.post("/api/generate", json={"query": "Acme One"}).json()
@@ -147,3 +147,117 @@ def test_label_matches_wait_and_human_tasks_stay_human():
     assert g.verdict.label.endswith("days") and "same day" not in g.verdict.label
     assert g.agent_split.agent == ["draft privacy policy"]
     assert "record demo video" in g.agent_split.you and "submit verification" in g.agent_split.you
+
+
+
+# ---- second review ----------------------------------------------------------------------------------------------
+
+def _known_google():
+    return [{"id": "F1", "topic": "timeline", "claim": "Sensitive scope verification typically takes 3-5 business days.",
+             "quote": "q", "url": "https://developers.google.com/s", "official": True, "verified": True, "known": True},
+            {"id": "F2", "topic": "review", "claim": "Only restricted scopes need the annual third-party CASA security assessment.",
+             "quote": "q", "url": "https://support.google.com/cloud/answer/13465431", "official": True, "verified": True,
+             "known": True}]
+
+
+def test_drive_read_and_list_is_restricted_not_a_week():
+    from app.agent.web import Page
+    pages = [Page(url=f["url"], title="t", text="q", official=True) for f in _known_google()]
+    draft = {"use_case": "read and list files", "flags": {"review_for_production": True},
+             "verdict": {"wait": "about 7 days"}, "stages": [{"id": "build", "steps": [
+                 {"title": "Add the drive.file scope", "who": "you", "refs": []}]}]}
+    g = build_guide("Google Drive", "", draft, _known_google(), [], pages, ("yes", "", None), "m", Stats())
+    assert g.flags.security_assessment and "weeks" in g.verdict.wait and g.verdict.difficulty >= 4
+    assert "audit" in g.verdict.label
+    assert [p.name for p in g.paths] == ["Sensitive scopes only", "Restricted scopes (what this use case needs)"]
+
+
+def test_calendar_stays_sensitive():
+    draft = {"use_case": "read and write calendar events", "flags": {"review_for_production": True}, "verdict": {}}
+    g = build_guide("Google Calendar", "", draft, _known_google()[:1], [], [], ("yes", "", None), "m", Stats())
+    assert not g.flags.security_assessment and "about a week" in g.verdict.wait
+
+
+def test_waiting_for_capacity_does_not_use_up_attempts(monkeypatch):
+    from app.agent import llm as L
+    g = L.Groq(api_key="k")
+    calls = {"pick": 0}
+    real_pick = g.synth_pool.pick
+
+    def pick(need):  # busy 20 times, then free
+        calls["pick"] += 1
+        return (None, 0.0) if calls["pick"] <= 20 else real_pick(need)
+    monkeypatch.setattr(g.synth_pool, "pick", pick)
+
+    async def fake_sleep(_):
+        return None
+    monkeypatch.setattr(L.asyncio, "sleep", fake_sleep)
+
+    class R:
+        status_code, headers, text = 200, {}, ""
+        def json(self):
+            return {"choices": [{"message": {"content": '{"ok": 1}'}}], "usage": {"total_tokens": 10}}
+
+    async def post(*a, **k):
+        return R()
+    monkeypatch.setattr(g.client, "post", post)
+    data, _ = asyncio.run(g.json_call("s", "u", pool="synth"))
+    assert data == {"ok": 1} and calls["pick"] == 21
+
+
+def test_failed_run_is_friendly_and_refunded():
+    class Broken:
+        configured = True
+        async def json_call(self, *a, **k):
+            from app.agent.llm import LLMError
+            raise LLMError("busy")
+    refunded = []
+    job = pipeline.new_job("Acme")
+    job.on_fail = lambda: refunded.append(1)
+
+    async def fail_early(*a, **k):
+        from app.agent.llm import LLMError
+        raise LLMError("busy")
+    import app.agent.pipeline as P
+    orig = P._run
+    P._run = fail_early
+    try:
+        asyncio.run(pipeline.run(job, Broken(), lambda g: None))
+    finally:
+        P._run = orig
+    err = next(e for e in job.events if e["type"] == "error")
+    assert "busy" not in err["message"].split()[0] and "try again" in err["message"].lower() and refunded == [1]
+
+
+def test_umbrella_ip_and_case(monkeypatch):
+    from app import main
+    c = TestClient(main.app)
+    assert "Gmail" in c.post("/api/generate", json={"query": "Google"}).json()["choose"]
+    assert "choose" in c.post("/api/generate", json={"query": "google workspace"}).json()
+
+    class Req:
+        def __init__(self, h): self.headers, self.client = h, None
+    assert main._client_ip(Req({"x-forwarded-for": "6.6.6.6, 1.2.3.4"})) == "1.2.3.4"
+    assert main._client_ip(Req({"cf-connecting-ip": "9.9.9.9", "x-forwarded-for": "6.6.6.6"})) == "9.9.9.9"
+    r = c.get("/guides/GitHub", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/guides/github"
+
+
+def test_people_do_the_uploading_and_waiting():
+    draft = {"flags": {}, "verdict": {}, "agent_split": {"agent": ["upload demo video", "draft scope justification"]},
+             "stages": [{"id": "launch", "steps": [{"title": "Wait for Google review", "who": "either", "refs": []}]}]}
+    g = _guide(draft)
+    assert g.agent_split.agent == ["draft scope justification"]
+    launch = next(st for st in g.stages if st.id == "launch")
+    assert launch.steps[0].who == "you"
+
+
+def test_source_ids_are_contiguous():
+    from app.agent.web import Page
+    pages = [Page(url=f"https://a.com/{i}", title=str(i), text="t", official=True) for i in range(4)]
+    facts = [{"id": f"F{i}", "topic": "x", "claim": "c", "quote": "q", "url": f"https://a.com/{i}",
+              "official": True, "verified": True} for i in (1, 3)]
+    draft = {"flags": {}, "verdict": {}, "gotchas": [{"title": "g", "refs": ["F1", "F3"]}]}
+    g = build_guide("A", "", draft, facts, [], pages, ("yes", "", None), "m", Stats())
+    page_ids = [s.id for s in g.sources if s.id.startswith("s")]
+    assert page_ids == ["s1", "s2"] and g.gotchas[0].sources == ["s1", "s2"]

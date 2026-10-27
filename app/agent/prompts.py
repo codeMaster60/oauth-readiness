@@ -57,6 +57,7 @@ no marketing words ("seamless", "robust", "leverage", "comprehensive"), no fille
 }
 Consistency: "review_for_production" is true only if users beyond a test group CANNOT connect until the provider
 approves the app. An optional marketplace/directory listing review does not count. "verdict.wait" must match the flags.
+Any wait you mention anywhere (summary, steps, gotchas) must agree with verdict.wait. Don't quote a different number.
 Facts marked HAND-CHECKED were verified by a person; when they conflict with other facts, they win.
 "security_assessment" is true only if a fact names a third-party security assessment/audit (e.g. CASA) that applies
 to the scopes this use case needs. A provider's own app review is not a security assessment.

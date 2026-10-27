@@ -115,13 +115,19 @@ class Groq:
         p = self.extract_pool if pool == "extract" else self.synth_pool
         need = _est_tokens(system) + _est_tokens(user) + max_tokens
         last_err = "no attempt"
-        for attempt in range(8):
+        # Waiting for free-tier capacity is not a failure, so it doesn't use up attempts. Two runs at once can
+        # spend minutes just waiting their turn; we give up only on a time budget or after real errors.
+        deadline = time.time() + float(os.getenv("LLM_CALL_BUDGET_S", "300"))
+        attempts, last_notice = 0, 0.0
+        while attempts < 8 and time.time() < deadline:
             model, wait = p.pick(need)
             if model is None:
-                if notify:
-                    await notify(f"Free-tier rate limit: waiting {wait:.0f}s for model capacity…")
-                await asyncio.sleep(wait)
+                if notify and time.time() - last_notice > 20:
+                    await notify(f"Waiting for free model capacity (about {wait:.0f}s). Busy when two runs share it.")
+                    last_notice = time.time()
+                await asyncio.sleep(min(wait, max(0.5, deadline - time.time())))
                 continue
+            attempts += 1
             body = {
                 "model": model,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -177,4 +183,6 @@ class Groq:
             except Exception:
                 last_err = "unparseable JSON"
                 continue
-        raise LLMError(f"LLM call failed after retries ({last_err})")
+        if time.time() >= deadline and attempts == 0:
+            raise LLMError("busy")
+        raise LLMError(f"model error ({last_err})")

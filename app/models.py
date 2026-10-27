@@ -193,6 +193,8 @@ def label(f: "Flags", d: int) -> str:
     w = f.review_wait_days_max or 0
     if f.partner_gated:
         when = "approval not guaranteed"
+    elif f.security_assessment:
+        when = "weeks + yearly audit"
     elif f.review_for_production and w >= 14:
         when = "weeks"
     elif f.review_for_production:

@@ -27,7 +27,7 @@ import httpx
 from ..models import (LABELS, AgentSplit, label, Blocker, ComposioInfo, Flags, Gotcha, Guide, Note, PathOption,
                       Probe, Requirement, Source, Stage, Stats, Step, Verdict, score)
 from . import probe as probes
-from .knowledge import known_pages
+from .knowledge import known_pages, needs_google_restricted
 from .llm import Groq, LLMError
 from .prompts import EXTRACT_SYSTEM, EXTRACT_USER, SYNTH_SYSTEM, SYNTH_USER
 from .web import (Page, domain_of, primary_domain, fetch, guess_official_domains, keep_url, pick_snippets, quote_on_page,
@@ -62,6 +62,7 @@ class Job:
     error: Optional[str] = None
     started: float = field(default_factory=time.time)
     _cond: asyncio.Condition = field(default_factory=asyncio.Condition)
+    on_fail: Optional[object] = None
 
     async def emit(self, type_: str, **data):
         async with self._cond:
@@ -88,6 +89,26 @@ def _norm(q: str) -> str:
     return re.sub(r"[^a-z0-9.]+", "", q.lower().removeprefix("https://").removeprefix("http://").removeprefix("www."))
 
 
+UMBRELLAS = {
+    "google": ["Gmail", "Google Calendar", "Google Drive", "Google Sheets", "Google Docs", "YouTube"],
+    "google workspace": ["Gmail", "Google Calendar", "Google Drive", "Google Sheets", "Google Docs"],
+    "gsuite": ["Gmail", "Google Calendar", "Google Drive", "Google Sheets"],
+    "microsoft": ["Outlook", "Microsoft Teams", "OneDrive", "SharePoint", "Microsoft Entra ID"],
+    "microsoft 365": ["Outlook", "Microsoft Teams", "OneDrive", "SharePoint"],
+    "office 365": ["Outlook", "Microsoft Teams", "OneDrive", "SharePoint"],
+    "atlassian": ["Jira", "Confluence", "Bitbucket", "Trello"],
+    "meta": ["Facebook Pages", "Instagram", "WhatsApp Business"],
+    "facebook": ["Facebook Pages", "Instagram"],
+    "zoho": ["Zoho CRM", "Zoho Mail", "Zoho Books"],
+    "amazon": ["Amazon Seller Central", "Login with Amazon"],
+}
+
+
+def umbrella_choices(query: str) -> Optional[list[str]]:
+    """'Google' covers products with very different review paths. Ask which one instead of guessing."""
+    return UMBRELLAS.get(re.sub(r"\s+", " ", query.strip().lower()))
+
+
 def running_job_for(query: str) -> Optional[Job]:
     """If someone is already researching this app, watch that run instead of starting another."""
     key = _norm(query)
@@ -105,7 +126,8 @@ def new_job(query: str) -> Job:
     return job
 
 
-def start(job: Job, llm, save) -> None:
+def start(job: Job, llm, save, on_fail=None) -> None:
+    job.on_fail = on_fail
     task = asyncio.create_task(run(job, llm, save))
     TASKS.add(task)
     task.add_done_callback(TASKS.discard)
@@ -244,7 +266,7 @@ def wait_days(text: str) -> Optional[int]:
 
 
 HUMAN_ONLY = re.compile(r"\brecord|\bsubmit|sign up|\bsign in|\bpay\b|\bpurchase|verify (?:your|the|company|business|identity)|"
-                        r"accept (?:the )?terms|upload (?:a |the )?(?:video|id)|\bclick\b", re.I)
+                        r"accept (?:the )?terms|\bupload\b.*\b(?:video|id)\b|\bclick\b", re.I)
 
 
 def split_work(raw: dict) -> AgentSplit:
@@ -310,13 +332,37 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     if flags.security_assessment and not any(SECURITY_RE.search(f"{f['claim']} {f['quote']}")
                                              for f in facts if not f.get("known")):
         flags.security_assessment = False
-    # 2. Hand-checked timelines beat whatever the model wrote.
+    # 1b. A backed "blocker" gotcha about an audit also counts (the model sometimes flags it there, not in flags).
+    for gx in draft.get("gotchas") or []:
+        if isinstance(gx, dict) and gx.get("severity") == "blocker" and gx.get("refs") and \
+                SECURITY_RE.search(f"{gx.get('title', '')} {gx.get('detail', '')}"):
+            flags.security_assessment = True
+    # 2. Google family: does this use case need a restricted scope? Then it's weeks plus a yearly CASA audit,
+    #    whatever a sensitive-scope estimate says. (Drive "read and list files" can't work on drive.file alone.)
+    is_google = any(f.get("known") for f in facts) or name.lower().startswith(("google", "gmail", "youtube"))
+    step_text = [f"{x.get('title', '')} {x.get('detail', '')}" for st in draft.get("stages") or [] if isinstance(st, dict)
+                 for x in st.get("steps") or [] if isinstance(x, dict)]
+    step_text += [f"{x.get('item', '')} {x.get('detail', '')}" for x in draft.get("requirements") or [] if isinstance(x, dict)]
+    restricted = is_google and needs_google_restricted(str(draft.get("use_case") or ""), step_text)
     known_days = [wait_days(f["claim"]) for f in facts if f.get("known") and f["topic"] == "timeline"]
     known_days = [x for x in known_days if x]
     wait = str(vt.get("wait") or "unknown")
-    if known_days and flags.review_for_production and not flags.security_assessment:
+    if restricted:
+        flags.review_for_production = True
+        flags.security_assessment = True
+        flags.review_wait_days_max = max(flags.review_wait_days_max or 0, 42)
+        wait = "Several weeks: restricted-scope review plus a yearly CASA audit (Google publishes no fixed time)"
+        extra_uncertain.append("Google publishes no timeline for restricted scopes. The 42 days used for the score is "
+                               "my estimate, not Google's.")
+    elif known_days and flags.review_for_production and not flags.security_assessment:
         flags.review_wait_days_max = max(known_days)
-        wait = f"About {max(known_days)} days, going by the provider's own published estimates"
+        span = None
+        for f in facts:
+            if f.get("known") and f["topic"] == "timeline" and wait_days(f["claim"]) == max(known_days):
+                m = re.search(r"\d+\s*[-–]\s*\d+\s*business days", f["claim"])
+                span = m.group(0) if m else None
+        wait = (f"{span} (about a week), going by the provider's own published estimates" if span
+                else f"About {max(known_days)} days, going by the provider's own published estimates")
     # 3. Wait text and score must agree.
     text_days = wait_days(wait)
     if not flags.review_for_production and not flags.partner_gated:
@@ -370,7 +416,7 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
             who="either", minutes=5, evidence="documented", sources=["c2"]))
     for st in stages:
         for x in st.steps:
-            if x.who == "agent" and re.search(r"\bwait|submit|sign up|pay|verify (?:your|the) (?:identity|business)|record", x.title, re.I):
+            if x.who in ("agent", "either") and re.search(r"\bwait|submit|sign up|pay|verify (?:your|the) (?:identity|business)|record", x.title, re.I):
                 x.who = "you"
     managed, mnote, murl = composio
     if murl:
@@ -378,14 +424,38 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     sources.append(Source(id="c2", title="Composio: managed vs custom auth",
                           url="https://docs.composio.dev/docs/authentication/custom-app-vs-managed-app",
                           kind="composio"))
+    extra_paths = []
+    if restricted and not draft.get("paths"):
+        casa = [page_sid[f["url"]] for f in facts if f.get("known") and SECURITY_RE.search(f["claim"])]
+        narrow = flags.model_copy(update={"security_assessment": False, "review_wait_days_max": 7})
+        extra_paths = [
+            PathOption(name="Sensitive scopes only", difficulty=score(narrow)[0], wait="3-5 business days (about a week)",
+                       when="If you can live without reading the user's existing data. For Drive that's drive.file, which only "
+                            "sees files your app created or the user picks. For Gmail, gmail.send.",
+                       evidence="documented" if casa else "uncertain", sources=casa[:1]),
+            PathOption(name="Restricted scopes (what this use case needs)", difficulty=score(flags)[0],
+                       wait="several weeks, plus a CASA audit every year",
+                       when="Reading, listing or searching the user's mail or files.",
+                       evidence="documented" if casa else "uncertain", sources=casa[:1]),
+        ]
     requirements = items(draft.get("requirements"), Requirement, ["item", "when", "detail"])
     gotchas = items(draft.get("gotchas"), Gotcha, ["title", "detail", "severity"])
     blockers = items(draft.get("blockers"), Blocker, ["symptom", "cause", "fix"])
-    paths = items(draft.get("paths"), PathOption, ["name", "when", "difficulty", "wait"])
+    paths = items(draft.get("paths"), PathOption, ["name", "when", "difficulty", "wait"]) + extra_paths
     used = {sid for coll in (requirements, gotchas, blockers, paths) for x in coll for sid in x.sources}
     used |= {sid for st in stages for x in [*st.limits, *st.steps] for sid in x.sources}
     # Only list pages that something on the guide actually cites. Probes and Composio pages always stay.
     sources = [s for s in sources if s.kind in ("probe", "composio") or s.id in used]
+    # Renumber page sources s1..sN so the list doesn't read s2, s5, s10 after unused ones are dropped.
+    remap, n = {}, 0
+    for src in sources:
+        if src.id.startswith("s"):
+            n += 1
+            remap[src.id] = f"s{n}"
+            src.id = remap[src.id]
+    for coll in (requirements, gotchas, blockers, paths, *[[*st.limits, *st.steps] for st in stages]):
+        for x in coll:
+            x.sources = [remap.get(sid, sid) for sid in x.sources]
     uncertainties = [str(u) for u in draft.get("uncertainties") or [] if not JUNK_UNCERTAIN.search(str(u))]
     uncertainties += extra_uncertain
     return Guide(
@@ -420,18 +490,31 @@ def build_guide(name: str, website: str, draft: dict[str, Any], facts: list[dict
     )
 
 
+def friendly_error(e: Exception) -> str:
+    msg = str(e)
+    if "GROQ_API_KEY" in msg:
+        return "The live agent is switched off on this server (no model key). The hand-checked guides still work."
+    if msg == "busy" or "capacity" in msg:
+        return "The free model tier stayed busy for too long, usually because other runs were going at the same time. Give it a minute and try again."
+    if isinstance(e, LLMError):
+        return "The model kept erroring out, so I stopped rather than write a half-baked guide. Try again in a minute."
+    return msg  # our own RuntimeErrors are already written for people
+
+
 async def run(job: Job, llm: Groq, save) -> None:
     if _SEM.locked():
         await job.emit("step", id="queue", status="running",
-                       label="Waiting for a free slot. The free tier runs two at a time, this usually takes under a minute.")
+                       label="Waiting for a free slot. The free tier runs two at a time, so this can take a few minutes.")
     async with _SEM:
         if any(e.get("id") == "queue" for e in job.events):
             await job.emit("step", id="queue", status="done", label="Got a slot, starting now")
         try:
             await _run(job, llm, save)
-        except Exception as e:  # surface every failure to the UI
+        except Exception as e:  # surface every failure to the UI, in plain words
             job.error = str(e)
-            await job.emit("error", message=str(e))
+            await job.emit("error", message=friendly_error(e), retry=True)
+            if getattr(job, "on_fail", None):
+                job.on_fail()  # a failed run shouldn't count against the person's run limit
         finally:
             job.done = True
             await job.emit("end")

@@ -9,6 +9,8 @@ Each quote is a short line from the official page it links to.
 
 from __future__ import annotations
 
+import re
+
 from .web import Page
 
 KNOWN: dict[str, dict] = {
@@ -63,3 +65,24 @@ def known_pages(official_domains: set[str], name: str) -> list[Page]:
             p.text += quote + "\n"
             p.known.append((topic, claim, quote))  # type: ignore[attr-defined]
     return list(by_url.values())
+
+
+# Google's restricted scopes (the ones that need verification + a yearly CASA audit). From Google's restricted
+# scope list; the Gmail guide's console test confirmed gmail.readonly lands under "restricted".
+GOOGLE_RESTRICTED = (
+    "mail.google.com", "gmail.readonly", "gmail.modify", "gmail.compose", "gmail.insert", "gmail.metadata",
+    "gmail.settings.basic", "gmail.settings.sharing", "auth/drive\"", "auth/drive ", "drive.readonly",
+    "drive.metadata", "drive.metadata.readonly", "drive.activity", "drive.scripts", "drive.photos.readonly",
+)
+# Plain-language use cases that can't be done without a restricted scope.
+RESTRICTED_USE = re.compile(
+    r"\b(read|list|search|scan|summari[sz]e|sync|index|browse|organi[sz]e|access)\b[^.]{0,40}\b"
+    r"(e-?mails?|inbox|messages|mailbox|files|drive|folders)\b", re.I)
+
+
+def needs_google_restricted(use_case: str, texts: list[str]) -> bool:
+    """True if this Google use case needs a restricted scope (and so CASA), whatever the model concluded."""
+    blob = " ".join(texts).lower()
+    if any(sc in blob for sc in GOOGLE_RESTRICTED):
+        return True
+    return bool(RESTRICTED_USE.search(use_case or ""))

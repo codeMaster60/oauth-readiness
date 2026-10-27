@@ -17,6 +17,15 @@ async function startLookup(query, force = false) {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.detail || "Something went wrong. Try again in a moment.");
+    if (d.choose) {  // umbrella name like "Google": ask which product
+      busy = false;
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const html = `"${esc(query)}" covers a few products with very different review paths. Which one? ` +
+        d.choose.map((c) => `<a href="#" data-try="${esc(c)}">${esc(c)}</a>`).join(" · ");
+      if (msg) msg.innerHTML = html; else alert(d.choose.join(", "));
+      return;
+    }
     location.href = d.existing || d.watch;
   } catch (e) {
     busy = false;
@@ -38,6 +47,16 @@ async function copyText(el, text, okLabel) {
 }
 
 $("#lookup")?.addEventListener("submit", (e) => { e.preventDefault(); startLookup($("#q").value); });
+// Some embedded browsers don't submit forms on Enter; make sure it works everywhere.
+$("#q")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); startLookup($("#q").value); }
+});
+// Coming back with the Back button can restore a page whose button still says "Starting…".
+window.addEventListener("pageshow", () => {
+  busy = false;
+  const btn = $("#go");
+  if (btn) { btn.disabled = false; btn.textContent = "Get the guide →"; }
+});
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-try]");
   if (t) { e.preventDefault(); startLookup(t.dataset.try, !!t.dataset.force); }
@@ -126,9 +145,12 @@ function watchJob(id) {
       setTimeout(() => (location.href = `/guides/${ev.slug}`), 1500);
     } else if (ev.type === "error") {
       const r = $("#result"); r.hidden = false; r.classList.add("err");
-      r.innerHTML = `<b>The agent got stuck:</b> ${esc(ev.message)} <a href="/">Go back</a>`;
+      const q = $(".gen .q")?.textContent || "";
+      r.innerHTML = `<b>The agent got stuck.</b> ${esc(ev.message)} ` +
+        `<a href="#" class="btn" data-try="${esc(q)}" data-force="1">Try again</a> <a href="/">Go back</a>`;
     } else if (ev.type === "end") {
       es.close(); clearInterval(tick);
+      $("#elapsed").textContent = Number(ev.t || 0).toFixed(1); // how long the run took, not time since
       Object.values(steps).forEach((el) => { if (el.className === "st-running") el.className = "st-warn"; });
     }
   };

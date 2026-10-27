@@ -9,7 +9,7 @@
   "model": "",
   "verdict": {
     "difficulty": 5,
-    "label": "Gated · weeks",
+    "label": "Gated · weeks + yearly audit",
     "summary": "Setting it up is easy. Reading users' mail isn't. That needs Google's restricted-scope review plus a paid security audit, every year. Plan for weeks, and pick your scopes before you write code, because the scope decides which path you're on.",
     "active_effort": "1–2 days of prep (policies, video, domain checks) plus fixing security-scan findings",
     "wait": "Brand verification 2–3 business days; restricted-scope review plus CASA is typically several weeks (Google publishes no fixed time)",

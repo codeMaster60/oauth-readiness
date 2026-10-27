@@ -68,6 +68,8 @@ def guide_page(request: Request, slug: str):
     if slug.endswith(".md"):
         return guide_md(request, slug[:-3])
     g = store.get(slug)
+    if not g and slug.lower() != slug and store.get(slug.lower()):
+        return RedirectResponse(f"/guides/{slug.lower()}", status_code=301)
     if not g:
         raise HTTPException(404, "No guide with that name yet")
     _, reasons = score(g.flags)
@@ -108,8 +110,25 @@ class GenReq(BaseModel):
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "unknown")
+    """Never trust the first X-Forwarded-For entry: the client can write it. Prefer headers set by the edge,
+    else the last hop the proxy appended (what Render actually saw)."""
+    for h in ("cf-connecting-ip", "true-client-ip"):
+        if request.headers.get(h):
+            return request.headers[h].strip()
+    fwd = [x.strip() for x in request.headers.get("x-forwarded-for", "").split(",") if x.strip()]
+    if fwd:
+        return fwd[-1]
+    return request.client.host if request.client else "unknown"
+
+
+def _refund(ip: str):
+    """A run that failed on our side shouldn't count against the person's limit."""
+    def go():
+        if _ip_runs[ip]:
+            _ip_runs[ip].pop()
+        if _day_runs:
+            _day_runs.pop()
+    return go
 
 
 def _rate_limited(ip: str) -> str | None:
@@ -139,14 +158,18 @@ async def generate(req: GenReq, request: Request):
         g = store.find(q)
         if g:
             return {"existing": f"/guides/{g.slug}"}
+    choices = pipeline.umbrella_choices(q)
+    if choices:  # "Google" is five different review paths; ask instead of guessing
+        return {"choose": choices}
     running = pipeline.running_job_for(q)
     if running:  # someone is already researching this one, watch that run
         return {"job": running.id, "watch": f"/generate/{running.id}"}
-    limited = _rate_limited(_client_ip(request))
+    ip = _client_ip(request)
+    limited = _rate_limited(ip)
     if limited:
         raise HTTPException(429, limited)
     job = pipeline.new_job(q)
-    pipeline.start(job, llm, store.save)
+    pipeline.start(job, llm, store.save, on_fail=_refund(ip))
     return {"job": job.id, "watch": f"/generate/{job.id}"}
 
 
